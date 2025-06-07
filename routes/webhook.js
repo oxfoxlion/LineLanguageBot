@@ -26,8 +26,8 @@ router.post('/', lineMiddleware, async (req, res) => {
             };
         })
     );
-
-    res.status(200).json(results);
+    console.log(results);
+    res.status(200).json({ status: 'ok' });
 })
 
 export default router;
