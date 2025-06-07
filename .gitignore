@@ -1,0 +1,9 @@
+# 忽略 node_modules（這是最重要的）
+node_modules/
+
+# 忽略 dotenv 檔案（避免金鑰外洩）
+.env
+
+# 忽略 log 或系統產生的檔案
+*.log
+.DS_Store
