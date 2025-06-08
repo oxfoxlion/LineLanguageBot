@@ -25,11 +25,10 @@ router.post('/', lineMiddleware, async (req, res) => {
                 try {
                     // 取得使用者名稱
                     const profile = await lineClient.getProfile(userId);
-                    const name = profile.displayName;
+                    const name = profile.displayName || '朋友';
 
                     //回覆打招呼 + 選單
-                    await lineClient.replyMessage(
-                        event.replyToken,
+                    await lineClient.replyMessage(event.replyToken, [
                         {
                             type: "text",
                             text: `Hi ${name}！請選擇你今天想練習的模式～`,
@@ -62,7 +61,7 @@ router.post('/', lineMiddleware, async (req, res) => {
                                 ]
                             }
                         }
-                    );
+                    ]);
 
                 } catch (error) {
                     console.error("抓不到使用者名稱", error)
