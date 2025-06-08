@@ -6,7 +6,7 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 })
 
-export async function askChatGPT(language, mode, userInput) {
+export async function askChatGPT(userInput) {
 
 
     const completion = await openai.chat.completions.create({
