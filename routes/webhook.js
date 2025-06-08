@@ -24,26 +24,6 @@ router.post('/', lineMiddleware, async (req, res) => {
                 // 取得使用者訊息
                 const userText = event.message.text;
 
-                try{
-                    const profile = await lineClient.getProfile(userId);
-                    const name = profile.displayName || '朋友';
-
-                    const gptReply = await askChatGPT(`我是${name},${userText}`);
-
-                    await lineClient.replyMessage({
-                            replyToken: event.replyToken,
-                            messages: [
-                                {
-                                    type: 'text',
-                                    text: gptReply.slice(0, 1000) // LINE 限制 1000 字
-                                }
-                            ]
-                        });
-                    } catch (err) {
-                        console.error('❌ GPT 回覆失敗', err);
-                    }
-                }
-
                 // ✅ 新增：處理 quick reply 的三種模式指令
                 // if (['學習模式', '考題模式', '對話模式'].includes(userText)) {
                 //     // 制訂一個promt函數
@@ -82,56 +62,56 @@ router.post('/', lineMiddleware, async (req, res) => {
 
 
 
-                // try {
-                //     // 取得使用者名稱
-                //     const profile = await lineClient.getProfile(userId);
-                //     const name = profile.displayName || '朋友';
+                try {
+                    // 取得使用者名稱
+                    const profile = await lineClient.getProfile(userId);
+                    const name = profile.displayName || '朋友';
 
-                //     //回覆打招呼 + 選單
-                //     await lineClient.replyMessage({
-                //         replyToken: event.replyToken,
-                //         messages: [
-                //             {
-                //                 type: "text",
-                //                 text: `Hi ${name}！請選擇你今天想練習的模式～`,
-                //                 quickReply: {
-                //                     items: [
-                //                         {
-                //                             type: "action",
-                //                             action: {
-                //                                 type: "message",
-                //                                 label: "🧠 學習模式",
-                //                                 text: "學習模式"
-                //                             }
-                //                         },
-                //                         {
-                //                             type: "action",
-                //                             action: {
-                //                                 type: "message",
-                //                                 label: "📝 考題模式",
-                //                                 text: "考題模式"
-                //                             }
-                //                         },
-                //                         {
-                //                             type: "action",
-                //                             action: {
-                //                                 type: "message",
-                //                                 label: "💬 對話模式",
-                //                                 text: "對話模式"
-                //                             }
-                //                         }
-                //                     ]
-                //                 }
-                //             }
-                //         ]
-                //     });
+                    //回覆打招呼 + 選單
+                    await lineClient.replyMessage({
+                        replyToken: event.replyToken,
+                        messages: [
+                            {
+                                type: "text",
+                                text: `Hi ${name}！請選擇你今天想練習的模式～`,
+                                quickReply: {
+                                    items: [
+                                        {
+                                            type: "action",
+                                            action: {
+                                                type: "message",
+                                                label: "🧠 學習模式",
+                                                text: "學習模式"
+                                            }
+                                        },
+                                        {
+                                            type: "action",
+                                            action: {
+                                                type: "message",
+                                                label: "📝 考題模式",
+                                                text: "考題模式"
+                                            }
+                                        },
+                                        {
+                                            type: "action",
+                                            action: {
+                                                type: "message",
+                                                label: "💬 對話模式",
+                                                text: "對話模式"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    });
 
-                // } catch (error) {
-                //     console.error("抓不到使用者名稱", error)
-                // }
+                } catch (error) {
+                    console.error("抓不到使用者名稱", error)
+                }
 
             }
-        
+        }
 
         // 最一開始的鸚鵡測試
         // const results = await Promise.all(
