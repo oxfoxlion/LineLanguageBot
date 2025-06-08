@@ -7,10 +7,12 @@ import webhookRouter from './routes/webhook.js';
 dotenv.config();
 //express建立伺服器
 const app = express();
-app.use(express.json());//將json轉為javascript物件
+
 //設定 webhook 路由
 app.use('/webhook', webhookRouter);
 
+//將json轉為javascript物件
+app.use(express.json());
 //啟動伺服器
 const PORT = process.env.PORT || 3000; //取.env變數的PORT
 app.listen(PORT,()=>{
