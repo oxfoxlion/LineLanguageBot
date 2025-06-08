@@ -14,9 +14,14 @@ router.post('/', lineMiddleware, async (req, res) => {
                 if (event.type === 'message' && event.message.type === 'text') {
                     const userText = event.message.text;
 
-                    return lineClient.replyMessage(event.replyToken, {
-                        type: 'text',
-                        text: `你說的是：${userText}`
+                    return lineClient.replyMessage({
+                        replyToken: event.replyToken,
+                        messages: [
+                            {
+                                type: 'text',
+                                text: `你說的是：${userText}`
+                            }
+                        ]
                     })
                 } else {
                     // 明確 return null，避免 Promise.all 出現 undefined
