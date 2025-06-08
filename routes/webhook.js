@@ -13,24 +13,11 @@ router.post('/', lineMiddleware, async (req, res) => {
         for (const event of events) {
 
             if (event.type === 'message' && event.message.type === 'text') {
-
-                // 取得使用者ID =>叫名子用
-                const source = event.source;
-                const userId = source.userId;
-                if (!userId) {
-                    console.warn('⚠️ 無法取得 userId，來源可能是群組或未加好友');
-                    continue; // 或 return
-                }
-
                 // 取得使用者訊息
                 const userText = event.message.text;
 
                 try {
-
-                    const profile = await lineClient.getProfile(userId);
-                    const name = profile.displayName || '朋友';
-
-                    const gptReply = await askChatGPT(`我是${name}，${userText}`);
+                    const gptReply = await askChatGPT(userText);
 
                     await lineClient.replyMessage({
                         replyToken: event.replyToken,
