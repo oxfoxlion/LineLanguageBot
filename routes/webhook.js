@@ -12,7 +12,15 @@ router.post('/', lineMiddleware, async (req, res) => {
         for (const event of events) {
 
             if (event.type === 'message' && event.message.type === 'text') {
-                const userId = event.source.userId;
+                const source = event.source;
+                console.log('[source]', source);
+
+                const userId = source.userId;
+
+                if (!userId) {
+                    console.warn('⚠️ 無法取得 userId，來源可能是群組或未加好友');
+                    continue; // 或 return
+                }
 
                 try {
                     // 取得使用者名稱
