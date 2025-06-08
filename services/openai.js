@@ -3,14 +3,16 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const openai = new OpenAI({
-    apiKey:process.env.OPENAI_API_KEY,
+    apiKey: process.env.OPENAI_API_KEY,
 })
 
-export async function askChatGPT(userInput){
+export async function askChatGPT(language, mode, userInput) {
+
+
     const completion = await openai.chat.completions.create({
-        model:'gpt-3.5-turbo',
-        messages:[
-            {role:'system',content:'You are a helpful English and Japanese learning assistant.'},
+        model: 'gpt-3.5-turbo',
+        messages: [
+            { role: 'system', content:"請以繁體中文對話"},
             { role: 'user', content: userInput },
         ]
     })
