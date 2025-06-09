@@ -2,6 +2,7 @@ import express from 'express';
 
 import { lineClient, lineMiddleware } from '../line-config.js';
 import { askChatGPT } from '../services/openai.js';
+import { saveMessage, getRecentMessages } from '../services/db.js';
 
 const router = express.Router();
 
@@ -13,24 +14,32 @@ router.post('/', lineMiddleware, async (req, res) => {
         for (const event of events) {
 
             if (event.type === 'message' && event.message.type === 'text') {
-                // 取得使用者訊息
+                const userId = event.source.userId;
                 const userText = event.message.text;
 
-                try {
-                    const gptReply = await askChatGPT(userText);
+                if (!userId) continue;
 
-                    await lineClient.replyMessage({
-                        replyToken: event.replyToken,
-                        messages: [
-                            {
-                                type: 'text',
-                                text: gptReply.slice(0, 1000) // LINE 限制 1000 字
-                            }
-                        ]
-                    });
-                } catch (err) {
-                    console.error('❌ GPT 回覆失敗', err);
-                }
+                // 儲存使用者訊息
+                await saveMessage(userId, 'user', userText);
+
+                // 取得最近對話紀錄
+                const history = await getRecentMessages(userId, 10);
+
+                // 呼叫 GPT
+                const gptReply = await askChatGPT(history);
+
+                // 儲存 GPT 回覆
+                await saveMessage(userId, 'assistant', gptReply);
+
+                await lineClient.replyMessage({
+                    replyToken: event.replyToken,
+                    messages: [
+                        {
+                            type: 'text',
+                            text: gptReply.slice(0, 1000)
+                        }
+                    ]
+                });
 
             }
         }
