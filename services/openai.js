@@ -10,7 +10,7 @@ export async function askChatGPT(messages) {
 
 
     const completion = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o-mini',
         messages: [
             { role: 'system', content:"請以繁體中文對話"},
             ...messages,
