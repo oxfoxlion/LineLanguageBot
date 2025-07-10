@@ -25,21 +25,23 @@ router.post('/', lineMiddleware, async (req, res) => {
                 // 取得最近對話紀錄
                 const history = await getRecentMessages(userId, 10);
 
+                console.log(history)
+
                 // 呼叫 GPT
-                const gptReply = await askChatGPT(history);
+                // const gptReply = await askChatGPT(history);
 
                 // 儲存 GPT 回覆
-                await saveMessage(userId, 'assistant', gptReply);
+                // await saveMessage(userId, 'assistant', gptReply);
 
-                await lineClient.replyMessage({
-                    replyToken: event.replyToken,
-                    messages: [
-                        {
-                            type: 'text',
-                            text: gptReply.slice(0, 1000)
-                        }
-                    ]
-                });
+                // await lineClient.replyMessage({
+                //     replyToken: event.replyToken,
+                //     messages: [
+                //         {
+                //             type: 'text',
+                //             text: gptReply.slice(0, 1000)
+                //         }
+                //     ]
+                // });
 
             }
         }
