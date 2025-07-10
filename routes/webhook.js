@@ -25,7 +25,9 @@ router.post('/', lineMiddleware, async (req, res) => {
                 // 取得最近對話紀錄
                 const history = await getRecentMessages(userId, 10);
 
-                console.log(history)
+                const recentMessages = history.push({ role: 'user', content: userText });
+
+                console.log(recentMessages)
 
                 // 呼叫 GPT
                 // const gptReply = await askChatGPT(history);
