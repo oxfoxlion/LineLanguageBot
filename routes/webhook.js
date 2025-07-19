@@ -28,11 +28,13 @@ router.post('/', lineMiddleware, async (req, res) => {
                 // 組裝最新對話
                 history.push({ role: 'user', content: userText });
 
+                console.log(history);
+
                 // 呼叫 GPT
-                const gptReply = await askChatGPT(history);
+                // const gptReply = await askChatGPT(history);
 
                 // 儲存 GPT 回覆
-                await saveMessage(userId, 'assistant', gptReply);
+                // await saveMessage(userId, 'assistant', gptReply);
 
                 await lineClient.replyMessage({
                     replyToken: event.replyToken,
