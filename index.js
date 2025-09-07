@@ -17,7 +17,6 @@ app.use('/webhook', webhookRouter);
 app.use(express.json());
 
 app.get("/", (_,res)=>res.send("OK"));
-app.listen(process.env.PORT || 3000, ()=>console.log("Server started"));
 
 //啟動伺服器
 const PORT = process.env.PORT || 3000; //取.env變數的PORT

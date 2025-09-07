@@ -46,7 +46,7 @@ const router = express.Router();
 // });
 
 // 可接續上下文
-router.post("/webhook", lineMiddleware, async (req, res) => {
+router.post("/", lineMiddleware, async (req, res) => {
   const events = req.body?.events ?? [];
   res.sendStatus(200); // 先回 200，避免 LINE 重送
 
