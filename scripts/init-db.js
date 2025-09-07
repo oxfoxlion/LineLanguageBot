@@ -44,24 +44,27 @@ CREATE TABLE IF NOT EXISTS linebot.messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ⚠️ 修正：確保 line_message_id 有真正的唯一約束（非 partial index）
+-- ✅ 修正 UNIQUE constraint 建立邏輯
 DO $$
 BEGIN
-  -- 刪掉舊的 partial index（若存在）
-  IF EXISTS (
-    SELECT 1 FROM pg_indexes
-    WHERE schemaname = 'linebot' AND indexname = 'uq_messages_line_message_id'
-  ) THEN
-    EXECUTE 'DROP INDEX linebot.uq_messages_line_message_id';
-  END IF;
-
-  -- 新增 UNIQUE constraint（若尚未存在）
+  -- 如果還沒有 constraint，才進行修復
   IF NOT EXISTS (
     SELECT 1
     FROM pg_constraint
     WHERE conname = 'uq_messages_line_message_id'
       AND conrelid = 'linebot.messages'::regclass
   ) THEN
+    -- 若存在舊的 partial index，就先刪掉
+    IF EXISTS (
+      SELECT 1
+      FROM pg_indexes
+      WHERE schemaname = 'linebot'
+        AND indexname = 'uq_messages_line_message_id'
+    ) THEN
+      EXECUTE 'DROP INDEX linebot.uq_messages_line_message_id';
+    END IF;
+
+    -- 建立真正的 UNIQUE constraint
     ALTER TABLE linebot.messages
       ADD CONSTRAINT uq_messages_line_message_id UNIQUE (line_message_id);
   END IF;
