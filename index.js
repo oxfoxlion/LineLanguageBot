@@ -1,12 +1,13 @@
 // 套件
 import express from 'express';
 import dotenv from 'dotenv';
-// 檔案
-import "./services/db.js";            // 初始化連線池
-import "./scripts/init-db.js";        // 跑建表（僅首次會生效，很快）
-import webhookRouter from './routes/webhook.js';
 // 載入環境變數
 dotenv.config();
+
+// 檔案
+import "./services/db.js";            // 初始化連線池
+import webhookRouter from './routes/webhook.js';
+
 //express建立伺服器
 const app = express();
 

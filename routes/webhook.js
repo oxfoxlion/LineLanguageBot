@@ -47,43 +47,44 @@ const router = express.Router();
 
 // 可接續上下文
 router.post("/", lineMiddleware, async (req, res) => {
-  const events = req.body?.events ?? [];
-  res.sendStatus(200); // 先回 200，避免 LINE 重送
+    console.log("[WEBHOOK] signature:", req.headers["x-line-signature"] ? "present" : "missing");
+    console.log("[WEBHOOK] events:", req.body?.events?.length || 0);
+    const events = req.body?.events ?? [];
+    res.sendStatus(200); // 先回 200，避免 LINE 重送
 
-  for (const ev of events) {
-    try {
-      if (ev.type !== "message" || ev.message.type !== "text") continue;
+    for (const ev of events) {
+        try {
+            if (ev.type !== "message" || ev.message.type !== "text") continue;
 
-      const convId = makeConvId(ev.source);
-      const chatKind = ev.source.type; // 'user' | 'group' | 'room'
-      await ensureConversation(convId, chatKind);
+            const convId = makeConvId(ev.source);
+            const chatKind = ev.source.type; // 'user' | 'group' | 'room'
+            await ensureConversation(convId, chatKind);
 
-      // 寫入使用者訊息（用 message.id 去重）
-      await insertUserMessage({
-        convId,
-        lineMessageId: ev.message.id,
-        senderId: ev.source.userId ?? null,
-        type: "text",
-        content: ev.message.text,
-        payload: { raw: { type: ev.type, source: ev.source } }
-      });
+            // 寫入使用者訊息（用 message.id 去重）
+            await insertUserMessage({
+                convId,
+                lineMessageId: ev.message.id,
+                senderId: ev.source.userId ?? null,
+                type: "text",
+                content: ev.message.text,
+                payload: { raw: { type: ev.type, source: ev.source } }
+            });
 
-      // 取近期上下文 + 本次訊息，丟 GPT
-      const history = await getRecentMessages(convId, 12);
-      const reply = await chatWithOpenAI(history);
+            // 取近期上下文 + 本次訊息，丟 GPT
+            const history = await getRecentMessages(convId, 12);
+            const reply = await chatWithOpenAI(history);
 
-      // 寫入助理訊息
-      await insertAssistantMessage({ convId, content: reply });
+            // 寫入助理訊息
+            await insertAssistantMessage({ convId, content: reply });
 
-      // 回覆
-      await lineClient.replyMessage({
-        replyToken: ev.replyToken,
-        messages: [{ type: "text", text: reply }]
-      });
-    } catch (err) {
-      console.error("Webhook error:", err);
+            // 回覆
+            await lineClient.replyMessage(ev.replyToken, [
+                { type: "text", text: reply.slice(0, 1000) }
+            ]);
+        } catch (err) {
+            console.error("Webhook error:", err);
+        }
     }
-  }
 });
 
 export default router;
