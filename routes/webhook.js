@@ -56,12 +56,9 @@ router.post("/", lineMiddleware, async (req, res) => {
         try {
             if (ev.type !== "message" || ev.message.type !== "text") continue;
 
-            // 如果來源是群組，就檢查 mention
-            if (ev.source.type === "group") {
-                const mentions = ev.message.mention?.mentionees ?? [];
-                const botId = process.env.LINE_BOT_USER_ID; // 需要在環境變數設定你的 bot userId
-                const isMentioned = mentions.some(m => m.userId === botId);
-                if (!isMentioned) continue; // 沒有被 @ 就跳過
+            // ✅ 如果來源是群組，且訊息裡沒有「星星」就跳過
+            if (ev.source.type === "group" && !ev.message.text.includes("星星")) {
+                continue;
             }
 
             const convId = makeConvId(ev.source);
