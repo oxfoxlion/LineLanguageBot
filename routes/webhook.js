@@ -78,9 +78,10 @@ router.post("/", lineMiddleware, async (req, res) => {
             await insertAssistantMessage({ convId, content: reply });
 
             // 回覆
-            await lineClient.replyMessage(ev.replyToken, [
-                { type: "text", text: reply.slice(0, 1000) }
-            ]);
+            await lineClient.replyMessage({
+                replyToken: ev.replyToken,
+                messages: [{ type: "text", text: reply.slice(0, 1000) }],
+            });
         } catch (err) {
             console.error("Webhook error:", err);
         }
