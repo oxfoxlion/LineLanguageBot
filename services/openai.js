@@ -6,16 +6,16 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 })
 
-export async function askChatGPT(messages) {
-
+export async function askChatGPT(userText) {
+    const userContent = String(userText ?? '');
 
     const completion = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
-            { role: 'system', content:"你是我們的AI小助手，請回答使用者提出的相關問題"},
-            ...messages,
+            { role: 'system', content: "你是我們的AI小助手，請回答使用者提出的相關問題" },
+            { role: 'user', content: userContent }
         ]
     })
 
-    return completion.choices[0].message.content;
+    return completion.choices[0].message.content ?? '';
 }
