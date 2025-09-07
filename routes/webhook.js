@@ -2,7 +2,6 @@ import express from 'express';
 
 import { lineClient, lineMiddleware } from '../line-config.js';
 import { askChatGPT } from '../services/openai.js';
-import { saveMessage, getRecentMessages } from '../services/db.js';
 
 const router = express.Router();
 
@@ -19,22 +18,8 @@ router.post('/', lineMiddleware, async (req, res) => {
 
                 if (!userId) continue;
 
-                // 儲存使用者訊息
-                await saveMessage(userId, 'user', userText);
-
-                // 取得最近對話紀錄
-                const history = await getRecentMessages(userId, 10);
-
-                // 組裝最新對話
-                history.push({ role: 'user', content: userText });
-
-                console.log(history);
-
                 // 呼叫 GPT
-                const gptReply = await askChatGPT(history);
-
-                // 儲存 GPT 回覆
-                await saveMessage(userId, 'assistant', gptReply);
+                const gptReply = await askChatGPT(userText);
 
                 await lineClient.replyMessage({
                     replyToken: event.replyToken,
