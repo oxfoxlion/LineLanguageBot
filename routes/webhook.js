@@ -56,11 +56,18 @@ router.post("/", lineMiddleware, async (req, res) => {
         try {
             if (ev.type !== "message" || ev.message.type !== "text") continue;
 
+            // 如果來源是群組，就檢查 mention
+            if (ev.source.type === "group") {
+                const mentions = ev.message.mention?.mentionees ?? [];
+                const botId = process.env.LINE_BOT_USER_ID; // 需要在環境變數設定你的 bot userId
+                const isMentioned = mentions.some(m => m.userId === botId);
+                if (!isMentioned) continue; // 沒有被 @ 就跳過
+            }
+
             const convId = makeConvId(ev.source);
-            const chatKind = ev.source.type; // 'user' | 'group' | 'room'
+            const chatKind = ev.source.type;
             await ensureConversation(convId, chatKind);
 
-            // 寫入使用者訊息（用 message.id 去重）
             await insertUserMessage({
                 convId,
                 lineMessageId: ev.message.id,
@@ -70,17 +77,14 @@ router.post("/", lineMiddleware, async (req, res) => {
                 payload: { raw: { type: ev.type, source: ev.source } }
             });
 
-            // 取近期上下文 + 本次訊息，丟 GPT
             const history = await getRecentMessages(convId, 12);
             const reply = await chatWithOpenAI(history);
 
-            // 寫入助理訊息
             await insertAssistantMessage({ convId, content: reply });
 
-            // 回覆
             await lineClient.replyMessage({
                 replyToken: ev.replyToken,
-                messages: [{ type: "text", text: reply.slice(0, 1000) }],
+                messages: [{ type: "text", text: reply.slice(0, 1000) }]
             });
         } catch (err) {
             console.error("Webhook error:", err);
