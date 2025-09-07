@@ -12,7 +12,7 @@ export async function askChatGPT(userText) {
     const completion = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
-            { role: 'system', content: "你是我們的AI小助手，請回答使用者提出的相關問題" },
+            { role: 'system', content: "你是我們的AI小助手，請回答使用者提出的相關問題，回覆請限制於500字以內" },
             { role: 'user', content: userContent }
         ]
     })
