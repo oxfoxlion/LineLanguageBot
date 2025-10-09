@@ -22,3 +22,59 @@ cron.schedule("30 21 * * *", async () => {
     console.error("[CRON] ❌ 錯誤：", err);
   }
 }, { timezone: timeZone });
+
+cron.schedule("30 21 2 2,4,6,8,10,12 *", async () => {
+  console.log("[CRON] 雙數月的 2 號 21:30 提醒拍電表");
+  
+  const prompt = "星星，今天是雙數月2號，請提醒大家拍電表。簡短一句話就可以了。";
+  
+  try {
+    const result = await callGPT(prompt, { groupId: process.env.LINE_HOUSE_ID });
+    if (result.ok) console.log("[CRON] ✅ callGPT 執行成功");
+    else console.warn("[CRON] ⚠️ callGPT 執行失敗");
+  } catch (err) {
+    console.error("[CRON] ❌ 錯誤：", err);
+  }
+}, { timezone: "Asia/Taipei" });
+
+cron.schedule("30 21 2 1,3,5,7,9,11 *", async () => {
+  console.log("[CRON] 單數月的 2 號 21:30 提醒繳水費");
+  
+  const prompt = "星星，今天是單數月2號，請提醒大家繳水費。簡短一句話就可以了。";
+  
+  try {
+    const result = await callGPT(prompt, { groupId: process.env.LINE_HOUSE_ID });
+    if (result.ok) console.log("[CRON] ✅ callGPT 執行成功");
+    else console.warn("[CRON] ⚠️ callGPT 執行失敗");
+  } catch (err) {
+    console.error("[CRON] ❌ 錯誤：", err);
+  }
+}, { timezone: "Asia/Taipei" });
+
+cron.schedule("30 21 15 2,4,6,8,10,12 *", async () => {
+  console.log("[CRON] 雙數月的 15 號 21:30 提醒繳電費");
+  
+  const prompt = "星星，今天是雙數月15號，請提醒大家繳電費。簡短一句話就可以了。";
+  
+  try {
+    const result = await callGPT(prompt, { groupId: process.env.LINE_HOUSE_ID });
+    if (result.ok) console.log("[CRON] ✅ callGPT 執行成功");
+    else console.warn("[CRON] ⚠️ callGPT 執行失敗");
+  } catch (err) {
+    console.error("[CRON] ❌ 錯誤：", err);
+  }
+}, { timezone: "Asia/Taipei" });
+
+cron.schedule("30 21 4 * *", async () => {
+  console.log("[CRON] 每個月 4 號 21:30 米茶滴全能貓S");
+  
+  const prompt = "星星，今天是4號，請提醒米茶要滴全能貓S。簡短一句話就可以了。";
+  
+  try {
+    const result = await callGPT(prompt, { groupId: process.env.LINE_CAT_ID });
+    if (result.ok) console.log("[CRON] ✅ callGPT 執行成功");
+    else console.warn("[CRON] ⚠️ callGPT 執行失敗");
+  } catch (err) {
+    console.error("[CRON] ❌ 錯誤：", err);
+  }
+}, { timezone: "Asia/Taipei" });
