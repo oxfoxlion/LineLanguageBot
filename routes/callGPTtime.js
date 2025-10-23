@@ -9,7 +9,7 @@ cron.schedule("30 21 * * *", async () => {
   console.log("[CRON] 每晚 9:30 執行 callGPT()");
 
   // 這裡放你要給 GPT 的 prompt
-  const prompt = "請告訴大家現在是每日經文時間，並提供一句聖經經句(請附出處)，加上一小段引導，讓大家可以藉此思想";
+  const prompt = "現在是每日經文時間，請參考前一天的經文，按著聖經章節的順序，從下一個章節中挑選一句聖經經句(請以中文和合本譯文為主並請附上出處)，加上一小段引導，讓大家可以藉此思想。";
 
   try {
     const result = await callGPT(prompt,{groupId:process.env.LINE_PRAY_ID});
@@ -69,6 +69,34 @@ cron.schedule("30 21 4 * *", async () => {
   console.log("[CRON] 每個月 4 號 21:30 米茶滴全能貓S");
   
   const prompt = "星星，今天是4號，請提醒米茶要滴全能貓S。簡短一句話就可以了。";
+  
+  try {
+    const result = await callGPT(prompt, { groupId: process.env.LINE_CAT_ID });
+    if (result.ok) console.log("[CRON] ✅ callGPT 執行成功");
+    else console.warn("[CRON] ⚠️ callGPT 執行失敗");
+  } catch (err) {
+    console.error("[CRON] ❌ 錯誤：", err);
+  }
+}, { timezone: "Asia/Taipei" });
+
+cron.schedule("30 21 1 10 *", async () => {
+  console.log("[CRON] 每年10月1號 21:30 米茶打疫苗");
+  
+  const prompt = "星星，今天是10月1號，請提醒米茶要打疫苗。簡短一句話就可以了。";
+  
+  try {
+    const result = await callGPT(prompt, { groupId: process.env.LINE_CAT_ID });
+    if (result.ok) console.log("[CRON] ✅ callGPT 執行成功");
+    else console.warn("[CRON] ⚠️ callGPT 執行失敗");
+  } catch (err) {
+    console.error("[CRON] ❌ 錯誤：", err);
+  }
+}, { timezone: "Asia/Taipei" });
+
+cron.schedule("30 21 1 2 *", async () => {
+  console.log("[CRON] 每年2月1號 21:30 米茶預約健康檢查");
+  
+  const prompt = "星星，今天是2月1號，請提醒米茶要預約健康檢查。簡短一句話就可以了。";
   
   try {
     const result = await callGPT(prompt, { groupId: process.env.LINE_CAT_ID });
