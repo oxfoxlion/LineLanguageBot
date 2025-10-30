@@ -195,12 +195,12 @@ registerCronJob(
   process.env.LINE_FAMILY_ID
 );
 // 姨丈
-// registerCronJob(
-//   "30 06 10 08 *",
-//   "每年08月10號 6:30 姨丈生日",
-//   "系統提醒：告訴大家今天是8月10號，請告訴大家今天是簡維昌先生的生日!!!並用溫暖的語調祝福簡維昌先生生日快樂。",
-//   process.env.LINE_FAMILY_ID
-// );
+registerCronJob(
+  "30 06 18 05 *",
+  "每年05月18號 6:30 姨丈生日",
+  "系統提醒：告訴大家今天是5月18號，請告訴大家今天是簡維昌先生的生日!!!並用溫暖的語調祝福簡維昌先生生日快樂。",
+  process.env.LINE_FAMILY_ID
+);
 // 綺綺
 registerCronJob(
   "30 06 18 11 *",
