@@ -21,7 +21,7 @@ export async function chatWithOpenAI(history) {
   ];
 
   const r = await client.chat.completions.create({
-    model: "gpt-5-mini",
+    model: "gpt-5.1",
     messages,
     temperature: 0.6,
   });
