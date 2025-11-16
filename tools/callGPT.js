@@ -66,3 +66,5 @@ export default async function callGPT(prompt, { groupId = process.env.LINE_SHAO_
     return { ok: false };
   }
 }
+
+// callGPT("系統提醒：告訴大家今天是11月18號，今天是李月英女士的農曆生日和綺綺的國曆生日，請大家祝福他們生日快樂。",process.env.LINE_SHAO_ID)
