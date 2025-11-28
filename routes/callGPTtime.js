@@ -261,6 +261,14 @@ registerCronJob(
   process.env.LINE_FAMILY_ID
 );
 
+// 期間限定
+registerCronJob(
+  "00 09 * * *",
+  "聖誕降臨曆提醒",
+  "系統提醒：請提醒大家，打開降臨曆看看今天寫了些什麼吧",
+  process.env.LINE_LILY_SHAO_ID
+);
+
 // 你可以選擇性 export 工具，讓其他檔案也能複用
 export { registerCronJob };
 export default null;
