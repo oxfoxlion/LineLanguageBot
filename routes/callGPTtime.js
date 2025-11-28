@@ -51,6 +51,87 @@ function registerCronJob(schedule, logText, prompt, groupId) {
   );
 }
 
+/**
+ * 判斷今天是否在指定的「月/日～月/日」之間（不含年份）
+ *
+ * @param {number} startMonth
+ * @param {number} startDay
+ * @param {number} endMonth
+ * @param {number} endDay
+ * @param {string} timeZone  // 你在 cron schedule 內用的時區
+ * @returns {boolean}
+ */
+function isDateInRange(startMonth, startDay, endMonth, endDay, timeZone = "Asia/Taipei") {
+  const now = new Date();
+  const current = new Date(now.toLocaleString("en-US", { timeZone }));
+
+  const year = current.getFullYear();
+  const currentTime = current.getTime();
+
+  const start = new Date(year, startMonth - 1, startDay).getTime();
+  const end   = new Date(year, endMonth  - 1, endDay).getTime();
+
+  return currentTime >= start && currentTime <= end;
+}
+
+function pad(num) {
+  return num.toString().padStart(2, "0");
+}
+
+function registerRangeReminder({
+  startMonth,
+  startDay,
+  endMonth,
+  endDay,
+  hour,
+  minute,
+  logText,
+  prompt,
+  groupId,
+}) {
+  // 1) 把時間轉成 cron 字串（每天固定時間）
+  const schedule = `${pad(minute)} ${pad(hour)} * * *`;
+
+  // 2) 先驗證 cron 字串
+  if (!cron.validate(schedule)) {
+    console.error(`[CRON] ❌ 無效的 cron 表達式：${schedule} (${logText})`);
+    return;
+  }
+
+  // 3) 防重複註冊（沿用你原本的機制）
+  const key = makeKey(schedule, groupId, logText + `_range_${startMonth}/${startDay}-${endMonth}/${endDay}`);
+  if (registeredJobs.has(key)) {
+    console.warn(`[CRON] ⚠️ 已略過重複區間任務：${logText} @ ${schedule}`);
+    return;
+  }
+  registeredJobs.add(key);
+
+  // 4) 註冊真正的 cron 任務
+  cron.schedule(
+    schedule,
+    async () => {
+      // ⛔ 不在指定區間就直接跳過
+      if (!isDateInRange(startMonth, startDay, endMonth, endDay, timeZone)) {
+        console.log(
+          `[CRON] ⏭️ 非指定區間（${startMonth}/${startDay}~${endMonth}/${endDay}），略過：${logText}`
+        );
+        return;
+      }
+
+      console.log(`[CRON] ${logText}`);
+      try {
+        const result = await callGPT(prompt, { groupId });
+        if (result?.ok) console.log("[CRON] ✅ callGPT 執行成功");
+        else console.warn("[CRON] ⚠️ callGPT 執行失敗");
+      } catch (err) {
+        console.error("[CRON] ❌ 錯誤：", err);
+      }
+    },
+    { timezone: timeZone }
+  );
+}
+
+
 /** ===================== 任 務 註 冊 ===================== **/
 
 /** 每日經文：每天 21:30 **/
@@ -262,12 +343,17 @@ registerCronJob(
 );
 
 // 期間限定
-registerCronJob(
-  "00 09 * * *",
-  "聖誕降臨曆提醒",
-  "系統提醒：請提醒大家，打開降臨曆看看今天寫了些什麼吧",
-  process.env.LINE_LILY_SHAO_ID
-);
+registerRangeReminder({
+  startMonth: 12,
+  startDay: 1,
+  endMonth: 12,
+  endDay: 25,
+  hour: 9,
+  minute: 0,
+  logText: "聖誕降臨曆提醒",
+  prompt: "系統提醒：請提醒大家，打開降臨曆看看今天寫了些什麼吧",
+  groupId: process.env.LINE_LILY_SHAO_ID,
+});
 
 // 你可以選擇性 export 工具，讓其他檔案也能複用
 export { registerCronJob };
