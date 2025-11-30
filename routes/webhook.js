@@ -54,7 +54,13 @@ router.post("/", lineMiddleware, async (req, res) => {
 
     for (const ev of events) {
         try {
+
+            const currentUserId = ev.source && ev.source.userId;
+            console.log('📢 星星收到訊息');
+            console.log("使用者：",currentUserId);
+
             if (ev.type !== "message" || ev.message.type !== "text") continue;
+            console.log()
 
             // ✅ 如果來源是群組，且訊息裡沒有「星星」就跳過
             if (ev.source.type === "group" && !ev.message.text.includes("星星")) {
