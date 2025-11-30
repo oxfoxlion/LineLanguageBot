@@ -54,11 +54,17 @@ router.post("/", lineMiddleware, async (req, res) => {
 
     for (const ev of events) {
         try {
+            // 取得群組ID
+            const sourceType = ev.source.type;
+            let sourceId = null;
 
-            const currentUserId = ev.source && ev.source.userId;
-            console.log('📢 星星收到訊息');
-            console.log("使用者：",currentUserId);
+            if (sourceType === "user") sourceId = ev.source.userId;
+            if (sourceType === "group") sourceId = ev.source.groupId;
+            if (sourceType === "room") sourceId = ev.source.roomId;
 
+            console.log(`📨 來源類型: ${sourceType}, ID: ${sourceId}`);
+
+            // 只處理message訊息
             if (ev.type !== "message" || ev.message.type !== "text") continue;
             console.log()
 
