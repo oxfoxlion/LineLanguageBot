@@ -145,7 +145,7 @@ registerCronJob(
 registerCronJob(
   "30 21 * * *",
   "每日 21:30 經文時間",
-  "現在是每日經文時間，請參考前一天的經文，按著聖經章節的順序，從下一個章節中挑選一句聖經經句(請以中文和合本譯文為主並請附上出處)，加上一小段引導，讓大家可以藉此思想。如果前面沒有經文，請從新約第一章開始。",
+  "現在是每日經文時間，請參考前一天的經文，按著聖經章節的順序，從下一個章節中挑選一句聖經經句(請以中文和合本譯文為主並請附上出處)，加上一小段引導，讓大家可以藉此思想。舉例：前一天是馬太福音1:2，今天就應該是馬太福音第2章中由你任選一節，後天是馬太福音第3章。",
   process.env.LINE_PRAY_TEAM_ID
 );
 
@@ -348,19 +348,6 @@ registerCronJob(
   "系統提醒：今天是母親節，請祝福李月英女士、黃馨慧小姐、黃綉婷小姐、黃貴蘭小姐母親節快樂",
   process.env.LINE_FAMILY_ID
 );
-
-// 期間限定
-registerRangeReminder({
-  startMonth: 12,
-  startDay: 1,
-  endMonth: 12,
-  endDay: 25,
-  hour: 9,
-  minute: 0,
-  logText: "聖誕降臨曆提醒",
-  prompt: "系統提醒：請提醒大家，打開降臨曆看看今天寫了些什麼吧",
-  groupId: process.env.LINE_LILY_SHAO_ID,
-});
 
 // 你可以選擇性 export 工具，讓其他檔案也能複用
 export { registerCronJob };
