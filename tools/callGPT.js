@@ -27,70 +27,68 @@ export default async function callGPT(prompt, {
   maxHistory = 12 
 } = {}) {
 
-  // 檢查必要參數
-  if (platform === "line" && !groupId) {
-    console.error("[callGPT] 缺少 LINE 群組 ID。");
-    return { ok: false };
-  }
+  // 檢查基本參數
   if (!prompt || typeof prompt !== "string") {
     console.error("[callGPT] 無效的 prompt。");
     return { ok: false };
   }
 
   try {
-    // 1) 根據平台決定 Source 與格式，確保資料庫對話紀錄一致
+    // 1) 根據平台決定 Source
     let source;
     if (platform === "discord") {
-      source = { type: "group", channelId: discordChannelId }; // Discord 頻道視為 group 類型
+      source = { type: "group", channelId: discordChannelId };
     } else {
       source = { type: "group", groupId };
     }
 
-    // 建立唯一對話 ID (此處需確保 messages.js 的 makeConvId 能識別 discord 類型)
-    // 如果你還沒改 messages.js，這裡先手動處理前綴
-    const convId = platform === "discord" ? `discord:${discordChannelId}` : makeConvId(source);
+    // 2) 建立唯一對話 ID (使用 platform 區分)
+    const convId = makeConvId(source, platform);
     
-    // 2) 確保資料庫中有此對話
+    // 3) 確保資料庫中有此對話
     await ensureConversation(convId, "group");
 
-    // 3) 紀錄此筆「系統/手動」發出的 Prompt，使其成為歷史的一部分
+    // 4) 紀錄此筆「系統/手動」發出的 Prompt
     await insertUserMessage({
       convId,
-      lineMessageId: null, // 非 LINE 傳入訊息，無 messageId
+      lineMessageId: null,
       senderId: null,
       type: "text",
       content: prompt,
       payload: { raw: { type: "manual", platform, source } },
     });
 
-    // 4) 抓取最近歷史紀錄（包含剛存入的 Prompt）
+    // 5) 抓取最近歷史紀錄並呼叫 GPT
     const history = await getRecentMessages(convId, maxHistory);
-
-    // 5) 呼叫 GPT 產生回覆
     const reply = await chatWithOpenAI(history);
 
-    // 6) 紀錄機器人的回覆到資料庫
+    // 6) 紀錄回覆內容
     await insertAssistantMessage({ convId, content: reply });
 
-    // 7) 根據平台推播訊息
     const text = (reply ?? "").slice(0, 1000);
 
+    // 7) 根據平台分流推播訊息
     if (platform === "discord") {
-      // 發送到 Discord
       await sendDiscordMessage(text); 
       console.log("[callGPT] ✅ 訊息已推播至 Discord");
-    } else {
-      // 發送到 LINE
-      await lineClient.pushMessage({
-        to: groupId,
-        messages: [{ type: "text", text }],
-      });
-      console.log("[callGPT] ✅ 訊息已推播至 LINE");
+      return { ok: true, reply: text }; // ⚠️ 修正：Discord 發送後直接回傳，不執行下方 LINE 邏輯
+    } 
+
+    // LINE 平台邏輯
+    if (!groupId) {
+      console.error("[callGPT] 執行 LINE 推播但缺少有效 groupId");
+      return { ok: false };
     }
+
+    await lineClient.pushMessage({
+      to: groupId,
+      messages: [{ type: "text", text }],
+    });
+    console.log("[callGPT] ✅ 訊息已推播至 LINE");
 
     return { ok: true, reply: text };
   } catch (err) {
-    console.error("[callGPT] ❌ 執行失敗:", err?.response?.data ?? err);
+    console.error("[callGPT] ❌ 執行失敗:", err);
     return { ok: false };
   }
 }

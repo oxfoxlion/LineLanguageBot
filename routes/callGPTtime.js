@@ -1,6 +1,5 @@
 import cron from "node-cron";
 import callGPT from "../tools/callGPT.js";
-import sendDiscordMessage from "../services/Discord/discordBot.js";
 
 const timeZone = "Asia/Taipei";
 
@@ -20,32 +19,30 @@ function makeKey(schedule, groupId, logText) {
  * @param {string} prompt   - 給 GPT 的訊息
  * @param {string} groupId  - 目標 LINE 群組 ID
  */
-function registerCronJob(schedule, logText, prompt, groupId) {
-  // 1) 先驗證 cron 字串
+function registerCronJob(schedule, logText, prompt, groupId, extraOpts = {}) {
   if (!cron.validate(schedule)) {
     console.error(`[CRON] ❌ 無效的 cron 表達式：${schedule} (${logText})`);
     return;
   }
 
-  // 2) 防重複註冊
   const key = makeKey(schedule, groupId, logText);
   if (registeredJobs.has(key)) {
-    console.warn(`[CRON] ⚠️ 已略過重複任務：${logText} @ ${schedule}`);
+    console.warn(`[CRON] ⚠️ 已略過重複任務：${logText}`);
     return;
   }
   registeredJobs.add(key);
 
-  // 3) 註冊真正的任務
   cron.schedule(
     schedule,
     async () => {
       console.log(`[CRON] ${logText}`);
       try {
-        const result = await callGPT(prompt, { groupId });
-        if (result?.ok) console.log("[CRON] ✅ callGPT 執行成功");
-        else console.warn("[CRON] ⚠️ callGPT 執行失敗");
+        // ⚠️ 修正：這裡必須展開 ...extraOpts，否則 callGPT 無法接收到 platform: "discord"
+        const result = await callGPT(prompt, { groupId, ...extraOpts }); 
+        if (result?.ok) console.log(`[CRON] ✅ ${logText} 執行成功`);
+        else console.warn(`[CRON] ⚠️ ${logText} 執行失敗`);
       } catch (err) {
-        console.error("[CRON] ❌ 錯誤：", err);
+        console.error(`[CRON] ❌ ${logText} 錯誤：`, err);
       }
     },
     { timezone: timeZone }
@@ -79,6 +76,9 @@ function pad(num) {
   return num.toString().padStart(2, "0");
 }
 
+/**
+ * 區間提醒註冊器
+ */
 function registerRangeReminder({
   startMonth,
   startDay,
@@ -89,39 +89,25 @@ function registerRangeReminder({
   logText,
   prompt,
   groupId,
+  extraOpts = {} // 建議加入此項以支援 Discord 區間提醒
 }) {
-  // 1) 把時間轉成 cron 字串（每天固定時間）
   const schedule = `${pad(minute)} ${pad(hour)} * * *`;
-
-  // 2) 先驗證 cron 字串
-  if (!cron.validate(schedule)) {
-    console.error(`[CRON] ❌ 無效的 cron 表達式：${schedule} (${logText})`);
-    return;
-  }
-
-  // 3) 防重複註冊（沿用你原本的機制）
   const key = makeKey(schedule, groupId, logText + `_range_${startMonth}/${startDay}-${endMonth}/${endDay}`);
-  if (registeredJobs.has(key)) {
-    console.warn(`[CRON] ⚠️ 已略過重複區間任務：${logText} @ ${schedule}`);
-    return;
-  }
+  
+  if (registeredJobs.has(key)) return;
   registeredJobs.add(key);
 
-  // 4) 註冊真正的 cron 任務
   cron.schedule(
     schedule,
     async () => {
-      // ⛔ 不在指定區間就直接跳過
       if (!isDateInRange(startMonth, startDay, endMonth, endDay, timeZone)) {
-        console.log(
-          `[CRON] ⏭️ 非指定區間（${startMonth}/${startDay}~${endMonth}/${endDay}），略過：${logText}`
-        );
+        console.log(`[CRON] ⏭️ 非指定區間，略過：${logText}`);
         return;
       }
-
       console.log(`[CRON] ${logText}`);
       try {
-        const result = await callGPT(prompt, { groupId });
+        // ✅ 修改這裡，讓區間提醒也能支援多平台
+        const result = await callGPT(prompt, { groupId, ...extraOpts });
         if (result?.ok) console.log("[CRON] ✅ callGPT 執行成功");
         else console.warn("[CRON] ⚠️ callGPT 執行失敗");
       } catch (err) {
@@ -152,7 +138,7 @@ registerCronJob(
 );
 
 registerCronJob(
-  "50 00 * * *",
+  "10 01 * * *",
   "Discord 每日提醒",
   "系統提醒：現在是每日經文時間，請參考前一天的經文，按著聖經章節的順序，從下一個章節中挑選一句聖經經句(請以中文和合本譯文為主並請附上出處)，加上一小段引導，讓大家可以藉此思想。舉例：前一天是馬太福音1:2，今天就應該是馬太福音第2章中由你任選一節，後天是馬太福音第3章。假如查詢不到前一天的經文，就從出埃及記第29章開始。",
   process.env.DISCORD_CHANNEL_ID,
