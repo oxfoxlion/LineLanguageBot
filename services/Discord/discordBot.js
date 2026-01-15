@@ -26,6 +26,11 @@ client.once(Events.ClientReady, (c) => {
 client.login(DISCORD_TOKEN);
 
 client.on(Events.MessageCreate, async (message) => {
+    console.log(`--- [Discord 訊息接收] ---`);
+    console.log(`頻道名稱: ${message.channel.name || '私訊'}`);
+    console.log(`頻道 ID: ${message.channelId}`);
+    console.log(`傳送者: ${message.author.tag} (${message.author.id})`);
+    console.log(`--------------------------`);
     // 排除機器人自己的訊息
     if (message.author.bot) return;
 
