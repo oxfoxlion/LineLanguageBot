@@ -1,4 +1,4 @@
-// services/callGPT.js
+// tools/callGPT.js
 import { lineClient } from '../line-config.js';
 import {
   makeConvId,
@@ -8,63 +8,89 @@ import {
   getRecentMessages,
 } from "../services/messages.js";
 import { chatWithOpenAI } from "../services/openai_keep.js";
+import sendDiscordMessage from "../services/Discord/discordBot.js"; // 引入 Discord 發送功能
 
 /**
- * Send a one-off GPT reply to a LINE group, with context and DB logging.
- * @param {string} prompt - The message to feed into GPT.
+ * 發送 GPT 回覆至指定平台（LINE 或 Discord），包含上下文與資料庫紀錄。
+ * @param {string} prompt - 輸入給 GPT 的訊息。
  * @param {object} [opts]
- * @param {string} [opts.groupId=process.env.LINE_GROUP_ID] - Target LINE group ID.
- * @param {number} [opts.maxHistory=12] - How many recent messages to include as context.
+ * @param {string} [opts.groupId] - LINE 群組 ID (預設使用環境變數)。
+ * @param {string} [opts.discordChannelId] - Discord 頻道 ID。
+ * @param {string} [opts.platform='line'] - 指定平台：'line' 或 'discord'。
+ * @param {number} [opts.maxHistory=12] - 包含多少則最近訊息作為上下文。
  * @returns {Promise<{ ok: boolean, reply?: string }>}
  */
-export default async function callGPT(prompt, { groupId = process.env.LINE_SHAO_ID, maxHistory = 12 } = {}) {
-  if (!groupId) {
-    console.error("[callGPT] Missing LINE group ID. Provide opts.groupId or set LINE_GROUP_ID.");
+export default async function callGPT(prompt, { 
+  groupId = process.env.LINE_SHAO_ID, 
+  discordChannelId = process.env.DISCORD_CHANNEL_ID,
+  platform = "line", 
+  maxHistory = 12 
+} = {}) {
+
+  // 檢查必要參數
+  if (platform === "line" && !groupId) {
+    console.error("[callGPT] 缺少 LINE 群組 ID。");
     return { ok: false };
   }
   if (!prompt || typeof prompt !== "string") {
-    console.error("[callGPT] Invalid prompt.");
+    console.error("[callGPT] 無效的 prompt。");
     return { ok: false };
   }
 
   try {
-    // 1) Ensure conversation exists for this group
-    const source = { type: "group", groupId };
-    const convId = makeConvId(source);
+    // 1) 根據平台決定 Source 與格式，確保資料庫對話紀錄一致
+    let source;
+    if (platform === "discord") {
+      source = { type: "group", channelId: discordChannelId }; // Discord 頻道視為 group 類型
+    } else {
+      source = { type: "group", groupId };
+    }
+
+    // 建立唯一對話 ID (此處需確保 messages.js 的 makeConvId 能識別 discord 類型)
+    // 如果你還沒改 messages.js，這裡先手動處理前綴
+    const convId = platform === "discord" ? `discord:${discordChannelId}` : makeConvId(source);
+    
+    // 2) 確保資料庫中有此對話
     await ensureConversation(convId, "group");
 
-    // 2) Record this outgoing "user" message (the prompt) so it’s part of history
+    // 3) 紀錄此筆「系統/手動」發出的 Prompt，使其成為歷史的一部分
     await insertUserMessage({
       convId,
-      lineMessageId: null,              // no LINE inbound id (this is manual/one-off)
-      senderId: null,                   // unknown/non-LINE user
+      lineMessageId: null, // 非 LINE 傳入訊息，無 messageId
+      senderId: null,
       type: "text",
       content: prompt,
-      payload: { raw: { type: "manual", source } },
+      payload: { raw: { type: "manual", platform, source } },
     });
 
-    // 3) Pull recent history (now includes the prompt)
+    // 4) 抓取最近歷史紀錄（包含剛存入的 Prompt）
     const history = await getRecentMessages(convId, maxHistory);
 
-    // 4) Ask GPT with context
+    // 5) 呼叫 GPT 產生回覆
     const reply = await chatWithOpenAI(history);
 
-    // 5) Log assistant reply
+    // 6) 紀錄機器人的回覆到資料庫
     await insertAssistantMessage({ convId, content: reply });
 
-    // 6) Push to LINE group (trim to keep it safe)
+    // 7) 根據平台推播訊息
     const text = (reply ?? "").slice(0, 1000);
-    await lineClient.pushMessage({
-      to: groupId,
-      messages: [{ type: "text", text }],
-    });
 
-    console.log("[callGPT] ✅ Reply pushed to group");
+    if (platform === "discord") {
+      // 發送到 Discord
+      await sendDiscordMessage(text); 
+      console.log("[callGPT] ✅ 訊息已推播至 Discord");
+    } else {
+      // 發送到 LINE
+      await lineClient.pushMessage({
+        to: groupId,
+        messages: [{ type: "text", text }],
+      });
+      console.log("[callGPT] ✅ 訊息已推播至 LINE");
+    }
+
     return { ok: true, reply: text };
   } catch (err) {
-    console.error("[callGPT] ❌ Failed:", err?.response?.data ?? err);
+    console.error("[callGPT] ❌ 執行失敗:", err?.response?.data ?? err);
     return { ok: false };
   }
 }
-
-// callGPT("系統提醒：告訴大家今天是11月18號，今天是李月英女士的農曆生日和綺綺的國曆生日，請大家祝福他們生日快樂。",process.env.LINE_SHAO_ID)

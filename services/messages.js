@@ -1,13 +1,17 @@
 // services/messages.js
 import { query } from "./db.js";
 
-export function makeConvId(source) {
+export function makeConvId(source, platform = "line") {
+  if (platform === "discord") {
+    // Discord 的 source 通常是 channel 物件或 id
+    return `discord:${source.channelId || source.id}`;
+  }
+  // 原有的 LINE 邏輯
   if (source.type === "user") return `user:${source.userId}`;
   if (source.type === "group") return `group:${source.groupId}`;
-  if (source.type === "room")  return `room:${source.roomId}`;
+  if (source.type === "room") return `room:${source.roomId}`;
   return "unknown:unknown";
 }
-
 // 確保 conversations 存在
 export async function ensureConversation(convId, kind, title = null) {
   await query(
@@ -18,7 +22,7 @@ export async function ensureConversation(convId, kind, title = null) {
   );
 }
 
-export async function insertUserMessage({ convId, lineMessageId, senderId, type="text", content=null, payload={} }) {
+export async function insertUserMessage({ convId, lineMessageId, senderId, type = "text", content = null, payload = {} }) {
   const { rows } = await query(
     `INSERT INTO linebot.messages
      (conv_id, line_message_id, sender_id, sender_role, type, content, payload)

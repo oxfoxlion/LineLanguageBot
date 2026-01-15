@@ -1,6 +1,8 @@
 // src/services/discord/discordBot.js
 import { Client, GatewayIntentBits, Events } from 'discord.js'; // 1. 多引入 Events
 import dotenv from 'dotenv';
+import { chatWithOpenAI } from "../openai_keep.js";
+import { makeConvId, ensureConversation, insertUserMessage, insertAssistantMessage, getRecentMessages } from "../messages.js";
 
 dotenv.config();
 
@@ -21,6 +23,31 @@ client.once(Events.ClientReady, (c) => {
 });
 
 client.login(DISCORD_TOKEN);
+
+client.on(Events.MessageCreate, async (message) => {
+    // 排除機器人自己的訊息
+    if (message.author.bot) return;
+
+    const convId = makeConvId(message, "discord");
+    
+    // 1. 儲存對話紀錄
+    await ensureConversation(convId, "group"); // Discord 頻道可視為 group
+    await insertUserMessage({
+        convId,
+        lineMessageId: message.id, // 借用此欄位存 Discord message id
+        senderId: message.author.id,
+        content: message.content
+    });
+
+    // 2. 如果需要讓機器人回覆 (例如提到機器人時)
+    if (message.mentions.has(client.user)) {
+        const history = await getRecentMessages(convId, 12);
+        const reply = await chatWithOpenAI(history);
+        
+        await message.reply(reply);
+        await insertAssistantMessage({ convId, content: reply });
+    }
+});
 
 // 4. 定義發送訊息的函式
 // export default 讓你引用時不需要加 {}
@@ -43,3 +70,4 @@ export default async function sendDiscordMessage(messageContent) {
         console.error('發送錯誤:', error);
     }
 }
+
