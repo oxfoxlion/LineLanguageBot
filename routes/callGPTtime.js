@@ -121,6 +121,19 @@ function registerRangeReminder({
 
 /** ===================== 任 務 註 冊 ===================== **/
 
+registerRangeReminder({
+  startMonth: 1,
+  startDay: 24,
+  endMonth: 1,
+  endDay: 24,
+  hour: 9,
+  minute: 0,
+  logText: "2026/01/24 早上九點提醒",
+  prompt: "請提醒莉兒要打電話改牙醫時間",
+  groupId: process.env.LINE_LILY_SHAO_ID,
+});
+
+
 /** 每日經文：每天 21:30 **/
 // registerCronJob(
 //   "30 21 * * *",
