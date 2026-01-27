@@ -8,7 +8,7 @@ dotenv.config();
 import "./services/db.js";            // 初始化連線池
 import webhookRouter from './routes/webhook.js';
 import './routes/callGPTtime.js';
-import "./services/Discord/discordBot.js"
+import "./services/chatbot/Discord/discordBot.js"
 
 //express建立伺服器
 const app = express();

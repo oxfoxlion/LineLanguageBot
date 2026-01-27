@@ -1,9 +1,9 @@
 import express from 'express';
 
 import { lineClient, lineMiddleware } from '../line-config.js';
-import { makeConvId, ensureConversation, insertUserMessage, insertAssistantMessage, getRecentMessages } from "../services/messages.js";
+import { makeConvId, ensureConversation, insertUserMessage, insertAssistantMessage, getRecentMessages } from "../services/chatbot/messages.js";
 // import { askChatGPT } from '../services/openai.js'; //單次對話
-import { chatWithOpenAI } from "../services/openai_keep.js"; //接續上下文
+import { chatWithOpenAI } from "../services/chatbot/openai/openai_keep.js"; //接續上下文
 
 const router = express.Router();
 

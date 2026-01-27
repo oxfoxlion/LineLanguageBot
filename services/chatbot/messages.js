@@ -1,5 +1,5 @@
 // services/messages.js
-import { query } from "./db.js";
+import { query } from "../db.js";
 
 export function makeConvId(source, platform = "line") {
   if (platform === "discord") {

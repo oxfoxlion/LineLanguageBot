@@ -6,9 +6,9 @@ import {
   insertUserMessage,
   insertAssistantMessage,
   getRecentMessages,
-} from "../services/messages.js";
-import { chatWithOpenAI } from "../services/openai_keep.js";
-import sendDiscordMessage from "../services/Discord/discordBot.js"; // 引入 Discord 發送功能
+} from "../services/chatbot/messages.js";
+import { chatWithOpenAI } from "../services/chatbot/openai/openai_keep.js";
+import sendDiscordMessage from "../services/chatbot/Discord/discordBot.js"; // 引入 Discord 發送功能
 
 /**
  * 發送 GPT 回覆至指定平台（LINE 或 Discord），包含上下文與資料庫紀錄。

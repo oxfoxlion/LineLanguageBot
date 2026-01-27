@@ -1,7 +1,7 @@
 // src/services/discord/discordBot.js
 import { Client, GatewayIntentBits, Events } from 'discord.js'; // 1. 多引入 Events
 import dotenv from 'dotenv';
-import { chatWithOpenAI } from "../openai_keep.js";
+import { chatWithOpenAI } from "../openai/openai_keep.js";
 import { makeConvId, ensureConversation, insertUserMessage, insertAssistantMessage, getRecentMessages } from "../messages.js";
 
 dotenv.config();
