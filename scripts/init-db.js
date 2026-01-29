@@ -82,6 +82,8 @@ CREATE TABLE IF NOT EXISTS note_tool.users (
   email TEXT UNIQUE,
   display_name TEXT,
   password_hash TEXT,        -- 存儲雜湊後的密碼
+  two_factor_enabled BOOLEAN DEFAULT FALSE, -- 是否啟用 2FA
+  two_factor_secret TEXT,                   -- 存放 TOTP 的 Secret 金鑰
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -124,8 +126,8 @@ CREATE INDEX IF NOT EXISTS idx_cards_user_id ON note_tool.cards(user_id);
 CREATE INDEX IF NOT EXISTS idx_boards_user_id ON note_tool.boards(user_id);
 `;
 
-  (async () => {
-    await query(ddl);
-    console.log("✅ DB schema ready");
-    await pool.end();
-  })();
+(async () => {
+  await query(ddl);
+  console.log("✅ DB schema ready");
+  await pool.end();
+})();

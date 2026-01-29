@@ -17,20 +17,21 @@ import { createUser, getUserById } from "./note_tool_user.js";
 //     }
 // }
 
-// 測試取得使用者
+
 //  testCreateUser()
 
-// async function testGetUserById (){
-//     try{
-//         const user = await getUserById('shao');
+// 測試取得使用者
+async function testGetUserById (){
+    try{
+        const user = await getUserById('shao');
 
-//         console.log('取得使用者',user);
-//     }catch(err){
-//         console.log('測試失敗',err.message);
-//     }
-// }
+        console.log('取得使用者',user);
+    }catch(err){
+        console.log('測試失敗',err.message);
+    }
+}
 
-// testGetUserById();
+testGetUserById();
 
 // 測試建立卡片
 // async function testCreateCard(){
@@ -50,17 +51,17 @@ import { createUser, getUserById } from "./note_tool_user.js";
 // testCreateCard()
 
 
-async function testGetCardsByUser(){
-    try{
-        const cards = await getCardsByUser('shao');
+// async function testGetCardsByUser(){
+//     try{
+//         const cards = await getCardsByUser('shao');
 
-        console.log('取得卡片成功',cards);
-    }catch(err){
-        console.log('取得卡片失敗',err.message);
-    }
-}
+//         console.log('取得卡片成功',cards);
+//     }catch(err){
+//         console.log('取得卡片失敗',err.message);
+//     }
+// }
 
-testGetCardsByUser();
+// testGetCardsByUser();
 
 // async function testUpdateCards(){
 //     try{
