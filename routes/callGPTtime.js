@@ -144,7 +144,7 @@ registerCronJob(
 );
 
 registerCronJob(
-  "00 18 * * *",
+  "00 18 * * 1-5",
   "下班!!",
   "系統提醒：提醒莉兒要下班囉，記得打卡。附上一句今天辛苦工作的讚美，不用太長。",
   process.env.LINE_LILY_SHAO_ID
