@@ -44,6 +44,19 @@ export  async function getUserById(id) {
 }
 
 /**
+ * 用於 2FA 驗證：透過 ID 取得包含密碼雜湊與 2FA 狀態的使用者資料
+ */
+export async function getFullUserById(id) {
+    const sql = `
+    SELECT id, email, display_name, password_hash, two_factor_enabled, two_factor_secret
+    FROM note_tool.users
+    WHERE id = $1;
+    `;
+    const { rows } = await query(sql, [id]);
+    return rows[0];
+}
+
+/**
  * 用於登入驗證：取得包含密碼雜湊與 2FA 狀態的使用者資料
  */
 export async function getUserByEmail(email) {

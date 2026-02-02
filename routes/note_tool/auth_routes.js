@@ -3,7 +3,8 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { authenticator } from 'otplib';
 import QRCode from 'qrcode';
-import { createUser, getUserByEmail, updateTwoFactorSecret } from '../../services/note_tool/note_tool_user.js';
+import { authMiddleware } from '../../middlewares/note_tool/auth.js';
+import { createUser, getUserByEmail, getFullUserById, updateTwoFactorSecret } from '../../services/note_tool/note_tool_user.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your_fallback_secret';
@@ -51,16 +52,20 @@ router.post('/login', async (req, res) => {
 });
 
 // === 3. 2FA 設定：生成 QR Code ===
-router.post('/2fa/setup', async (req, res) => {
-  const { userId } = req.body; // 實務上應從已驗證的 JWT 中取得
+router.post('/2fa/setup', authMiddleware, async (req, res) => {
+  const { userId } = req.user; // 從已驗證的 JWT 中取得 userId，更安全
+  const user = await getFullUserById(userId);
+  if(!user) return res.status(404).json({ message: '找不到使用者'});
+
   const secret = authenticator.generateSecret();
-  const otpauth = authenticator.keyuri(userId, 'ShaoNoteTool', secret);
+  // 使用 email 作為標籤，讓使用者在驗證器 App 中更容易識別
+  const otpauth = authenticator.keyuri(user.email, 'ShaoNoteTool', secret);
 
   try {
     const qrCodeUrl = await QRCode.toDataURL(otpauth);
     // 先將 secret 存入資料庫，但尚未啟用 enabled
     await updateTwoFactorSecret(userId, secret, false);
-    res.json({ qrCodeUrl, secret });
+    res.json({ qrCodeUrl, secret }); // 仍回傳 secret 方便手動輸入
   } catch (err) {
     res.status(500).json({ message: '生成 QR Code 失敗' });
   }
@@ -68,10 +73,26 @@ router.post('/2fa/setup', async (req, res) => {
 
 // === 4. 2FA 驗證與啟用 / 登入確認 ===
 router.post('/2fa/verify', async (req, res) => {
-  const { userId, token } = req.body;
+  const { userId, email, token } = req.body;
   
   try {
-    const user = await getUserByEmail(req.body.email); // 或透過 userId 尋找
+    let user;
+    // 登入第二步驗證時，應優先使用 login 回傳的 userId
+    if (userId) {
+      user = await getFullUserById(userId);
+    } else if (email) {
+      // 保留彈性，但主要流程應使用 userId
+      user = await getUserByEmail(email);
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: '找不到對應的使用者' });
+    }
+
+    if (!user.two_factor_secret) {
+        return res.status(400).json({ message: '使用者尚未設定兩步驟驗證' });
+    }
+    
     const isValid = authenticator.verify({ token, secret: user.two_factor_secret });
 
     if (!isValid) return res.status(401).json({ message: '驗證碼錯誤' });
