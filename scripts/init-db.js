@@ -3,7 +3,8 @@ import { query, pool } from "../services/db.js";
 
 const ddl = `
 CREATE SCHEMA IF NOT EXISTS linebot;
-SET search_path TO linebot, public;
+CREATE SCHEMA IF NOT EXISTS note_tool;
+SET search_path TO linebot, note_tool,public;
 
 -- === enum types ===
 DO $$ BEGIN
@@ -18,7 +19,7 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- === tables ===
+-- === linebot ===
 CREATE TABLE IF NOT EXISTS linebot.conversations (
   id TEXT PRIMARY KEY,
   chat_kind chat_type NOT NULL,
@@ -72,6 +73,57 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS idx_messages_conv_time
   ON linebot.messages (conv_id, created_at DESC);
+
+
+-- === note_tool ===
+-- === 1. 使用者表 (網站與筆記系統共用) ===
+CREATE TABLE IF NOT EXISTS note_tool.users (
+  id TEXT PRIMARY KEY,       -- 可存放自定義 ID 或第三方登入 ID
+  email TEXT UNIQUE,
+  display_name TEXT,
+  password_hash TEXT,        -- 存儲雜湊後的密碼
+  two_factor_enabled BOOLEAN DEFAULT FALSE, -- 是否啟用 2FA
+  two_factor_secret TEXT,                   -- 存放 TOTP 的 Secret 金鑰
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- === 2. 卡片表 (核心內容) ===
+CREATE TABLE IF NOT EXISTS note_tool.cards (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES note_tool.users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  content TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- === 3. 卡片關聯表 (網狀連結/雙向連結) ===
+CREATE TABLE IF NOT EXISTS note_tool.card_links (
+  from_card_id BIGINT REFERENCES note_tool.cards(id) ON DELETE CASCADE,
+  to_card_id BIGINT REFERENCES note_tool.cards(id) ON DELETE CASCADE,
+  PRIMARY KEY (from_card_id, to_card_id)
+);
+
+-- === 4. 白板表 (容器) ===
+CREATE TABLE IF NOT EXISTS note_tool.boards (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES note_tool.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- === 5. 白板與卡片關聯表 (包含座標佈局) ===
+CREATE TABLE IF NOT EXISTS note_tool.board_cards (
+  board_id BIGINT REFERENCES note_tool.boards(id) ON DELETE CASCADE,
+  card_id BIGINT REFERENCES note_tool.cards(id) ON DELETE CASCADE,
+  x_pos INTEGER DEFAULT 0,
+  y_pos INTEGER DEFAULT 0,
+  PRIMARY KEY (board_id, card_id)
+);
+
+-- === 索引優化 ===
+CREATE INDEX IF NOT EXISTS idx_cards_user_id ON note_tool.cards(user_id);
+CREATE INDEX IF NOT EXISTS idx_boards_user_id ON note_tool.boards(user_id);
 `;
 
 (async () => {
