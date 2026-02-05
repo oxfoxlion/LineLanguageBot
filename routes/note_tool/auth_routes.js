@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { authenticator } from 'otplib';
+import * as otplib from 'otplib';
 import QRCode from 'qrcode';
 import { authMiddleware } from '../../middlewares/note_tool/auth.js';
 import { createUser, getUserByEmail, getFullUserById, updateTwoFactorSecret } from '../../services/note_tool/note_tool_user.js';
@@ -57,9 +57,9 @@ router.post('/2fa/setup', authMiddleware, async (req, res) => {
   const user = await getFullUserById(userId);
   if(!user) return res.status(404).json({ message: '找不到使用者'});
 
-  const secret = authenticator.generateSecret();
+  const secret = otplib.authenticator.generateSecret();
   // 使用 email 作為標籤，讓使用者在驗證器 App 中更容易識別
-  const otpauth = authenticator.keyuri(user.email, 'ShaoNoteTool', secret);
+  const otpauth = otplib.authenticator.keyuri(user.email, 'ShaoNoteTool', secret);
 
   try {
     const qrCodeUrl = await QRCode.toDataURL(otpauth);
@@ -93,7 +93,7 @@ router.post('/2fa/verify', async (req, res) => {
         return res.status(400).json({ message: '使用者尚未設定兩步驟驗證' });
     }
     
-    const isValid = authenticator.verify({ token, secret: user.two_factor_secret });
+    const isValid = otplib.authenticator.verify({ token, secret: user.two_factor_secret });
 
     if (!isValid) return res.status(401).json({ message: '驗證碼錯誤' });
 
