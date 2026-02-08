@@ -107,7 +107,6 @@
     "token": "123456" 
   }
   ```
-  > `token` 是從 Google Authenticator 等驗證 App 上取得的 6 位數驗證碼。
 - **Success Response (200)**:
   ```json
   {
@@ -192,24 +191,12 @@
     "updated_at": "2026-02-02T12:10:00.000Z"
   }
   ```
-- **Error Response (404)**:
-  ```json
-  {
-      "message": "找不到卡片，或您沒有權限更新此卡片"
-  }
-  ```
 
 ### 4. 刪除一張卡片
 
 - **Endpoint**: `DELETE /note_tool/card/:cardId`
 - **Header**: `Authorization: Bearer <your_jwt_token>`
 - **Success Response**: `204 No Content`
-- **Error Response (404)**:
-  ```json
-  {
-      "message": "找不到卡片，或您沒有權限刪除此卡片"
-  }
-  ```
 
 ---
 
@@ -229,7 +216,8 @@
       "id": 1,
       "user_id": "user_line_id_123",
       "name": "我的白板",
-      "created_at": "2026-02-02T12:00:00.000Z"
+      "created_at": "2026-02-02T12:00:00.000Z",
+      "card_count": 3
     }
   ]
   ```
@@ -250,7 +238,8 @@
     "id": 2,
     "user_id": "user_line_id_123",
     "name": "新白板",
-    "created_at": "2026-02-02T12:05:00.000Z"
+    "created_at": "2026-02-02T12:05:00.000Z",
+    "card_count": 0
   }
   ```
 
@@ -281,12 +270,6 @@
     ]
   }
   ```
-- **Error Response (404)**:
-  ```json
-  {
-    "message": "找不到白板"
-  }
-  ```
 
 ### 4. 白板內新增卡片
 
@@ -299,8 +282,41 @@
     "content": "卡片內容"
   }
   ```
+- **Success Response (201)**:
+  ```json
+  {
+    "card": {
+      "id": 11,
+      "user_id": "user_line_id_123",
+      "title": "卡片標題",
+      "content": "卡片內容",
+      "created_at": "2026-02-02T12:12:00.000Z",
+      "updated_at": "2026-02-02T12:12:00.000Z"
+    },
+    "boardCard": {
+      "board_id": 1,
+      "card_id": 11,
+      "x_pos": 0,
+      "y_pos": 0
+    }
+  }
+  ```
 
-### 5. 更新卡片在白板的位置
+### 5. 將既有卡片加入白板
+
+- **Endpoint**: `POST /note_tool/board/:boardId/cards/:cardId`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Success Response (201)**:
+  ```json
+  {
+    "board_id": 1,
+    "card_id": 4,
+    "x_pos": 0,
+    "y_pos": 0
+  }
+  ```
+
+### 6. 更新卡片在白板的位置
 
 - **Endpoint**: `PUT /note_tool/board/:boardId/cards/:cardId`
 - **Header**: `Authorization: Bearer <your_jwt_token>`
@@ -321,44 +337,11 @@
   }
   ```
 
-### 6. 將既有卡片加入白板
-
-- **Endpoint**: `POST /note_tool/board/:boardId/cards/:cardId`
-- **Header**: `Authorization: Bearer <your_jwt_token>`
-- **Success Response (201)**:
-  ```json
-  {
-    "board_id": 1,
-    "card_id": 4,
-    "x_pos": 0,
-    "y_pos": 0
-  }
-  ```
-
 ### 7. 從白板移除卡片
 
 - **Endpoint**: `DELETE /note_tool/board/:boardId/cards/:cardId`
 - **Header**: `Authorization: Bearer <your_jwt_token>`
 - **Success Response**: `204 No Content`
-- **Success Response (201)**:
-  ```json
-  {
-    "card": {
-      "id": 11,
-      "user_id": "user_line_id_123",
-      "title": "卡片標題",
-      "content": "卡片內容",
-      "created_at": "2026-02-02T12:12:00.000Z",
-      "updated_at": "2026-02-02T12:12:00.000Z"
-    },
-    "boardCard": {
-      "board_id": 1,
-      "card_id": 11,
-      "x_pos": 0,
-      "y_pos": 0
-    }
-  }
-  ```
 
 ---
 

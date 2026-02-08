@@ -20,6 +20,8 @@
 
 - `Note Tool Auth`：Email+Password、JWT、TOTP 2FA
 - `Note Tool Card API`：卡片新增、查詢、更新、刪除
+- `Note Tool Board API`：白板 CRUD、白板卡片位置、白板移除卡片
+- `User settings`：開啟方式（modal/sidepanel）、摘要長度等
 
 ## Tech Stack
 
@@ -42,7 +44,9 @@
 │  ├─ callGPTtime.js                # cron 排程註冊
 │  └─ note_tool/
 │     ├─ auth_routes.js             # Note Tool auth API
-│     └─ card_routes.js             # Note Tool card API
+│     ├─ card_routes.js             # Note Tool card API
+│     ├─ board_routes.js            # Note Tool board API
+│     └─ user_routes.js             # Note Tool user settings API
 ├─ services/
 │  ├─ db.js                         # PostgreSQL 連線池
 │  ├─ chatbot/
@@ -51,7 +55,8 @@
 │  │  └─ Discord/discordBot.js      # Discord Bot
 │  └─ note_tool/
 │     ├─ note_tool_user.js          # 使用者資料邏輯
-│     └─ note_tool_card.js          # 卡片資料邏輯
+│     ├─ note_tool_card.js          # 卡片資料邏輯
+│     └─ note_tool_board.js         # 白板資料邏輯
 ├─ tools/callGPT.js                 # 手動/排程呼叫 GPT 並推播
 ├─ scripts/init-db.js               # 建立 schema/table
 └─ docs/note_tool_api.md            # Note Tool API 文件
@@ -101,7 +106,7 @@ LINE_FAMILY_ID=
 DISCORD_TOKEN=your_discord_bot_token
 DISCORD_CHANNEL_ID=your_discord_channel_id
 
-# CORS (前端開發站點)
+# CORS (前端站點)
 CORS_ORIGIN=http://localhost:3000
 ```
 
@@ -125,7 +130,7 @@ npm run initdb
 node index.js
 ```
 
-啟動後預設會在 `http://localhost:3000` 提供服務。
+啟動後預設會在 `http://localhost:3001` 提供服務。
 
 ## API Overview
 
@@ -157,6 +162,9 @@ node index.js
 - `POST /note_tool/board/` (需 JWT)
 - `GET /note_tool/board/:boardId` (需 JWT)
 - `POST /note_tool/board/:boardId/cards` (需 JWT)
+- `POST /note_tool/board/:boardId/cards/:cardId` (需 JWT)
+- `PUT /note_tool/board/:boardId/cards/:cardId` (需 JWT)
+- `DELETE /note_tool/board/:boardId/cards/:cardId` (需 JWT)
 
 ### Note Tool User Settings
 
@@ -187,6 +195,11 @@ node index.js
 - 若部署到雲端，請確認平台有設定所有必要環境變數。
 - Note Tool API 詳細 payload/response 請看 `docs/note_tool_api.md`。
 - Work log: `docs/work_log_2026-02-08.md`
+
+## TODO
+
+1. 白板刪除功能
+2. 卡片列表與白板內的摘要改為顯示 Markdown 編譯後的內容
 
 ## Deployment (Render)
 
