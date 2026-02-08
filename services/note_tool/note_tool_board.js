@@ -5,7 +5,7 @@ export async function createBoard({ user_id, name }) {
   const sql = `
     INSERT INTO note_tool.boards (user_id, name)
     VALUES ($1, $2)
-    RETURNING id, user_id, name, created_at;
+    RETURNING id, user_id, name, created_at, 0 AS card_count;
   `;
   const { rows } = await query(sql, [user_id, name]);
   return rows[0];
@@ -13,10 +13,16 @@ export async function createBoard({ user_id, name }) {
 
 export async function getBoardsByUser(user_id) {
   const sql = `
-    SELECT id, user_id, name, created_at
-    FROM note_tool.boards
-    WHERE user_id = $1
-    ORDER BY created_at DESC;
+    SELECT b.id,
+           b.user_id,
+           b.name,
+           b.created_at,
+           COUNT(bc.card_id)::int AS card_count
+    FROM note_tool.boards b
+    LEFT JOIN note_tool.board_cards bc ON bc.board_id = b.id
+    WHERE b.user_id = $1
+    GROUP BY b.id
+    ORDER BY b.created_at DESC;
   `;
   const { rows } = await query(sql, [user_id]);
   return rows;
