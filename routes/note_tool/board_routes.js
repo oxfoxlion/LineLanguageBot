@@ -4,10 +4,12 @@ import { createCard } from '../../services/note_tool/note_tool_card.js';
 import {
   addCardToBoard,
   createBoard,
+  deleteBoard,
   getBoardById,
   getBoardsByUser,
   getCardsByBoard,
   updateBoardCardPosition,
+  updateBoard,
   removeCardFromBoard,
 } from '../../services/note_tool/note_tool_board.js';
 
@@ -54,6 +56,53 @@ router.get('/:boardId', async (req, res) => {
     res.json({ board, cards });
   } catch (err) {
     res.status(500).json({ message: '讀取白板內容時發生錯誤', error: err.message });
+  }
+});
+
+// PUT /:boardId: 更新白板名稱
+router.put('/:boardId', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { boardId } = req.params;
+    const { name, tags } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: '白板名稱為必填欄位' });
+    }
+    if (tags !== undefined && !Array.isArray(tags)) {
+      return res.status(400).json({ message: 'tags 必須為陣列' });
+    }
+
+    const updated = await updateBoard({
+      id: boardId,
+      user_id: userId,
+      name,
+      tags: tags?.map((tag) => String(tag)),
+    });
+    if (!updated) {
+      return res.status(404).json({ message: '找不到白板' });
+    }
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: '更新白板時發生錯誤', error: err.message });
+  }
+});
+
+// DELETE /:boardId: 刪除白板
+router.delete('/:boardId', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { boardId } = req.params;
+
+    const deleted = await deleteBoard({ id: boardId, user_id: userId });
+    if (!deleted) {
+      return res.status(404).json({ message: '找不到白板' });
+    }
+
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ message: '刪除白板時發生錯誤', error: err.message });
   }
 });
 
@@ -108,10 +157,15 @@ router.put('/:boardId/cards/:cardId', async (req, res) => {
   try {
     const userId = req.user.userId;
     const { boardId, cardId } = req.params;
-    const { x_pos, y_pos } = req.body;
+    const { x_pos, y_pos, width, height } = req.body;
 
-    if (!Number.isFinite(Number(x_pos)) || !Number.isFinite(Number(y_pos))) {
-      return res.status(400).json({ message: 'x_pos 和 y_pos 必須為數字' });
+    if (
+      (x_pos !== undefined && !Number.isFinite(Number(x_pos))) ||
+      (y_pos !== undefined && !Number.isFinite(Number(y_pos))) ||
+      (width !== undefined && !Number.isFinite(Number(width))) ||
+      (height !== undefined && !Number.isFinite(Number(height)))
+    ) {
+      return res.status(400).json({ message: 'x_pos, y_pos, width, height 必須為數字' });
     }
 
     const board = await getBoardById({ id: boardId, user_id: userId });
@@ -122,8 +176,10 @@ router.put('/:boardId/cards/:cardId', async (req, res) => {
     const updated = await updateBoardCardPosition({
       board_id: Number(boardId),
       card_id: Number(cardId),
-      x_pos: Number(x_pos),
-      y_pos: Number(y_pos),
+      x_pos: x_pos === undefined ? null : Number(x_pos),
+      y_pos: y_pos === undefined ? null : Number(y_pos),
+      width: width === undefined ? null : Number(width),
+      height: height === undefined ? null : Number(height),
     });
 
     if (!updated) {

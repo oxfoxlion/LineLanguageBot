@@ -1,5 +1,34 @@
 import {query} from '../db.js';
 
+function extractMentionIds(content) {
+    if (!content) return [];
+    const regex = /@\\[\\[(\\d+)\\|[^\\]]+\\]\\]/g;
+    const ids = new Set();
+    let match;
+    while ((match = regex.exec(content))) {
+        ids.add(Number(match[1]));
+    }
+    return Array.from(ids);
+}
+
+async function upsertCardLinks({fromCardId, toCardIds}) {
+    await query('DELETE FROM note_tool.card_links WHERE from_card_id = $1;', [fromCardId]);
+    if (!toCardIds || toCardIds.length === 0) return;
+    const values = [];
+    const params = [];
+    let idx = 1;
+    toCardIds.forEach((toId) => {
+        values.push(`($${idx++}, $${idx++})`);
+        params.push(fromCardId, toId);
+    });
+    const sql = `
+      INSERT INTO note_tool.card_links (from_card_id, to_card_id)
+      VALUES ${values.join(', ')}
+      ON CONFLICT DO NOTHING;
+    `;
+    await query(sql, params);
+}
+
 /**
  * 建立新卡片
  * @param {string} user_id -使用者 id
@@ -18,7 +47,17 @@ export async function createCard({user_id, title, content}){
     `;
 
     const {rows}= await query(sql,[user_id, title, content]);
-    return rows[0];
+    const card = rows[0];
+    const ids = extractMentionIds(content);
+    await query('BEGIN');
+    try {
+        await upsertCardLinks({fromCardId: card.id, toCardIds: ids});
+        await query('COMMIT');
+    } catch (err) {
+        await query('ROLLBACK');
+        throw err;
+    }
+    return card;
 }
 
 /**取得使用者的卡片清單 
@@ -60,7 +99,17 @@ export async function updateCard({id, user_id, title, content}){
         // 表示找不到該 ID 的卡片可供更新
         return null; 
     }
-    return rows[0];
+    const updated = rows[0];
+    const ids = extractMentionIds(content);
+    await query('BEGIN');
+    try {
+        await upsertCardLinks({fromCardId: id, toCardIds: ids});
+        await query('COMMIT');
+    } catch (err) {
+        await query('ROLLBACK');
+        throw err;
+    }
+    return updated;
 }
 
 /**

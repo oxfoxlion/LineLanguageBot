@@ -216,6 +216,7 @@
       "id": 1,
       "user_id": "user_line_id_123",
       "name": "我的白板",
+      "tags": ["research", "project"],
       "created_at": "2026-02-02T12:00:00.000Z",
       "card_count": 3
     }
@@ -238,12 +239,41 @@
     "id": 2,
     "user_id": "user_line_id_123",
     "name": "新白板",
+    "tags": [],
     "created_at": "2026-02-02T12:05:00.000Z",
     "card_count": 0
   }
   ```
 
-### 3. 取得白板與卡片
+### 3. 更新白板名稱
+
+- **Endpoint**: `PUT /note_tool/board/:boardId`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Request Body**:
+  ```json
+  {
+    "name": "更新後的白板名稱",
+    "tags": ["tag-a", "tag-b"]
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "id": 1,
+    "user_id": "user_line_id_123",
+    "name": "更新後的白板名稱",
+    "tags": ["tag-a", "tag-b"],
+    "created_at": "2026-02-02T12:00:00.000Z"
+  }
+  ```
+
+### 4. 刪除白板
+
+- **Endpoint**: `DELETE /note_tool/board/:boardId`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Success Response**: `204 No Content`
+
+### 5. 取得白板與卡片
 
 - **Endpoint**: `GET /note_tool/board/:boardId`
 - **Header**: `Authorization: Bearer <your_jwt_token>`
@@ -254,6 +284,7 @@
       "id": 1,
       "user_id": "user_line_id_123",
       "name": "我的白板",
+      "tags": ["research", "project"],
       "created_at": "2026-02-02T12:00:00.000Z"
     },
     "cards": [
@@ -271,7 +302,7 @@
   }
   ```
 
-### 4. 白板內新增卡片
+### 6. 白板內新增卡片
 
 - **Endpoint**: `POST /note_tool/board/:boardId/cards`
 - **Header**: `Authorization: Bearer <your_jwt_token>`
@@ -302,7 +333,7 @@
   }
   ```
 
-### 5. 將既有卡片加入白板
+### 7. 將既有卡片加入白板
 
 - **Endpoint**: `POST /note_tool/board/:boardId/cards/:cardId`
 - **Header**: `Authorization: Bearer <your_jwt_token>`
@@ -316,7 +347,7 @@
   }
   ```
 
-### 6. 更新卡片在白板的位置
+### 8. 更新卡片在白板的位置
 
 - **Endpoint**: `PUT /note_tool/board/:boardId/cards/:cardId`
 - **Header**: `Authorization: Bearer <your_jwt_token>`
@@ -337,7 +368,7 @@
   }
   ```
 
-### 7. 從白板移除卡片
+### 9. 從白板移除卡片
 
 - **Endpoint**: `DELETE /note_tool/board/:boardId/cards/:cardId`
 - **Header**: `Authorization: Bearer <your_jwt_token>`

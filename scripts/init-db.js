@@ -138,6 +138,7 @@ CREATE TABLE IF NOT EXISTS note_tool.boards (
   id BIGSERIAL PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES note_tool.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  tags TEXT[] DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -147,8 +148,42 @@ CREATE TABLE IF NOT EXISTS note_tool.board_cards (
   card_id BIGINT REFERENCES note_tool.cards(id) ON DELETE CASCADE,
   x_pos INTEGER DEFAULT 0,
   y_pos INTEGER DEFAULT 0,
+  width INTEGER,
+  height INTEGER,
   PRIMARY KEY (board_id, card_id)
 );
+
+-- ✅ 補齊既有資料庫缺少的欄位
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='board_cards' AND column_name='width'
+  ) THEN
+    ALTER TABLE note_tool.board_cards ADD COLUMN width INTEGER;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='board_cards' AND column_name='height'
+  ) THEN
+    ALTER TABLE note_tool.board_cards ADD COLUMN height INTEGER;
+  END IF;
+END $$;
+
+-- ✅ 補齊既有資料庫缺少的欄位
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='boards' AND column_name='tags'
+  ) THEN
+    ALTER TABLE note_tool.boards ADD COLUMN tags TEXT[] DEFAULT '{}';
+  END IF;
+END $$;
 
 -- === 索引優化 ===
 CREATE INDEX IF NOT EXISTS idx_cards_user_id ON note_tool.cards(user_id);

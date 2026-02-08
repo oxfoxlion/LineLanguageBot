@@ -161,10 +161,16 @@ node index.js
 - `GET /note_tool/board/` (需 JWT)
 - `POST /note_tool/board/` (需 JWT)
 - `GET /note_tool/board/:boardId` (需 JWT)
+- `PUT /note_tool/board/:boardId` (需 JWT)
+- `DELETE /note_tool/board/:boardId` (需 JWT)
 - `POST /note_tool/board/:boardId/cards` (需 JWT)
 - `POST /note_tool/board/:boardId/cards/:cardId` (需 JWT)
 - `PUT /note_tool/board/:boardId/cards/:cardId` (需 JWT)
 - `DELETE /note_tool/board/:boardId/cards/:cardId` (需 JWT)
+
+### Note Tool Card Links
+
+- `note_tool.card_links` 會在卡片儲存時依 @ mentions 更新
 
 ### Note Tool User Settings
 
