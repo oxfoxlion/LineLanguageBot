@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import * as otplib from 'otplib';
+import { generateSecret, generateURI, verify } from 'otplib';
 import QRCode from 'qrcode';
 import { authMiddleware } from '../../middlewares/note_tool/auth.js';
 import { createUser, getUserByEmail, getFullUserById, updateTwoFactorSecret } from '../../services/note_tool/note_tool_user.js';
@@ -45,7 +45,7 @@ router.post('/login', async (req, res) => {
 
     // 未啟用 2FA，直接發放 JWT
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1d' });
-    res.json({ message: '登入成功', token });
+    res.json({ message: '登入成功', token, userId: user.id });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -57,15 +57,19 @@ router.post('/2fa/setup', authMiddleware, async (req, res) => {
   const user = await getFullUserById(userId);
   if(!user) return res.status(404).json({ message: '找不到使用者'});
 
-  const secret = otplib.authenticator.generateSecret();
+  const secret = generateSecret();
   // 使用 email 作為標籤，讓使用者在驗證器 App 中更容易識別
-  const otpauth = otplib.authenticator.keyuri(user.email, 'ShaoNoteTool', secret);
+  const otpauth = generateURI({
+    secret,
+    label: user.email,
+    issuer: 'ShaoNoteTool',
+  });
 
   try {
     const qrCodeUrl = await QRCode.toDataURL(otpauth);
     // 先將 secret 存入資料庫，但尚未啟用 enabled
     await updateTwoFactorSecret(userId, secret, false);
-    res.json({ qrCodeUrl, secret }); // 仍回傳 secret 方便手動輸入
+    res.json({ qrCodeUrl, secret, userId }); // 仍回傳 secret 方便手動輸入
   } catch (err) {
     res.status(500).json({ message: '生成 QR Code 失敗' });
   }
@@ -93,7 +97,7 @@ router.post('/2fa/verify', async (req, res) => {
         return res.status(400).json({ message: '使用者尚未設定兩步驟驗證' });
     }
     
-    const isValid = otplib.authenticator.verify({ token, secret: user.two_factor_secret });
+    const isValid = verify({ token, secret: user.two_factor_secret });
 
     if (!isValid) return res.status(401).json({ message: '驗證碼錯誤' });
 

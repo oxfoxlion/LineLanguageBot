@@ -1,20 +1,23 @@
 # LineLanguageBot
 
-一個以 Node.js + Express 建立的多平台 AI 助理後端，整合了：
+這是一個共用的後端伺服器（Node.js + Express），主要提供兩個服務：
 
-- LINE Bot Webhook 對話
-- Discord Bot 對話
-- OpenAI 生成回覆（可延續上下文）
-- PostgreSQL 對話與 Note Tool 資料儲存
-- `node-cron` 自動提醒推播（LINE / Discord）
-- Note Tool API（註冊、登入、2FA、卡片 CRUD）
+1. Line/Discord 對話機器人
+2. Note Tool 卡片盒筆記工具
+
+系統整合 OpenAI、PostgreSQL 與排程提醒，作為上述兩個服務的共用基礎設施。
 
 ## Features
+
+### Service 1: Line/Discord 對話機器人
 
 - `LINE webhook`：接收訊息、保存歷史、回覆 GPT 內容
 - `Discord bot`：可在指定情境下回覆，並保存對話上下文
 - `Conversation memory`：以 `linebot.conversations` / `linebot.messages` 保存聊天歷史
 - `Scheduled reminders`：定時產生提醒文字並推播到指定群組/頻道
+
+### Service 2: Note Tool 卡片盒筆記工具
+
 - `Note Tool Auth`：Email+Password、JWT、TOTP 2FA
 - `Note Tool Card API`：卡片新增、查詢、更新、刪除
 
@@ -68,7 +71,8 @@
 
 ```env
 # Server
-PORT=3000
+# 建議後端改用 3001，避免與 Next.js(3000) 衝突
+PORT=3001
 
 # Database
 DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DB_NAME
@@ -96,6 +100,9 @@ LINE_FAMILY_ID=
 # Discord
 DISCORD_TOKEN=your_discord_bot_token
 DISCORD_CHANNEL_ID=your_discord_channel_id
+
+# CORS (前端開發站點)
+CORS_ORIGIN=http://localhost:3000
 ```
 
 ## Quick Start
@@ -144,6 +151,18 @@ node index.js
 - `PUT /note_tool/card/:cardId` (需 JWT)
 - `DELETE /note_tool/card/:cardId` (需 JWT)
 
+### Note Tool Boards
+
+- `GET /note_tool/board/` (需 JWT)
+- `POST /note_tool/board/` (需 JWT)
+- `GET /note_tool/board/:boardId` (需 JWT)
+- `POST /note_tool/board/:boardId/cards` (需 JWT)
+
+### Note Tool User Settings
+
+- `GET /note_tool/user/settings` (需 JWT)
+- `PUT /note_tool/user/settings` (需 JWT)
+
 更多 API payload/response 範例請看 `docs/note_tool_api.md`。
 
 ## Database
@@ -166,6 +185,8 @@ node index.js
 - `routes/callGPTtime.js` 匯入即註冊排程任務，請確認 `.env` 中推播目標 ID 正確。
 - LINE webhook route 會先回 `200`，再非同步處理事件，避免 LINE 重送。
 - 若部署到雲端，請確認平台有設定所有必要環境變數。
+- Note Tool API 詳細 payload/response 請看 `docs/note_tool_api.md`。
+- Work log: `docs/work_log_2026-02-08.md`
 
 ## Deployment (Render)
 

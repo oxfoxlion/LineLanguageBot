@@ -2,7 +2,7 @@
 
 這份文件提供給前端開發者，用於串接 Note Tool 的所有後端 API。
 
-**基礎路徑**: 所有的 API 路徑都基於一個基礎路徑，例如 `/api`。以下文件中的路徑將以 `/note_tool/...` 表示，前端需自行加上基礎路徑前綴 (e.g., `/api/note_tool/...`)。
+**基礎路徑**: API 路徑以 `/note_tool/...` 為主，前端可透過 `NEXT_PUBLIC_API_BASE` 指定後端 base URL (e.g., `http://localhost:3001`)。
 
 **驗證**: 大部分需要保護的路由都需要在 HTTP Header 中提供 JWT。
 - **Header**: `Authorization`
@@ -61,7 +61,8 @@
   ```json
   {
     "message": "登入成功",
-    "token": "your_jwt_token"
+    "token": "your_jwt_token",
+    "userId": "user_line_id_123"
   }
   ```
 - **Success Response (已啟用 2FA)**:
@@ -89,7 +90,8 @@
   ```json
   {
     "qrCodeUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-    "secret": "JBSWY3DPEHPK3PXP" 
+    "secret": "JBSWY3DPEHPK3PXP",
+    "userId": "user_line_id_123"
   }
   ```
   > **注意**: `secret` 供使用者無法掃描 QR Code 時手動輸入。
@@ -124,12 +126,12 @@
 
 ## 卡片 (Cards)
 
-基礎路徑: `/note_tool/cards`
+基礎路徑: `/note_tool/card`
 **注意**: 以下所有 API 都需要驗證。請在 Header 中提供 JWT。
 
 ### 1. 取得所有卡片
 
-- **Endpoint**: `GET /note_tool/cards/`
+- **Endpoint**: `GET /note_tool/card/`
 - **Header**: `Authorization: Bearer <your_jwt_token>`
 - **Success Response (200)**:
   ```json
@@ -147,7 +149,7 @@
 
 ### 2. 新增一張卡片
 
-- **Endpoint**: `POST /note_tool/cards/`
+- **Endpoint**: `POST /note_tool/card/`
 - **Header**: `Authorization: Bearer <your_jwt_token>`
 - **Request Body**:
   ```json
@@ -170,7 +172,7 @@
 
 ### 3. 更新一張卡片
 
-- **Endpoint**: `PUT /note_tool/cards/:cardId`
+- **Endpoint**: `PUT /note_tool/card/:cardId`
 - **Header**: `Authorization: Bearer <your_jwt_token>`
 - **Request Body**:
   ```json
@@ -199,12 +201,202 @@
 
 ### 4. 刪除一張卡片
 
-- **Endpoint**: `DELETE /note_tool/cards/:cardId`
+- **Endpoint**: `DELETE /note_tool/card/:cardId`
 - **Header**: `Authorization: Bearer <your_jwt_token>`
 - **Success Response**: `204 No Content`
 - **Error Response (404)**:
   ```json
   {
       "message": "找不到卡片，或您沒有權限刪除此卡片"
+  }
+  ```
+
+---
+
+## 白板 (Boards)
+
+基礎路徑: `/note_tool/board`
+**注意**: 以下所有 API 都需要驗證。請在 Header 中提供 JWT。
+
+### 1. 取得所有白板
+
+- **Endpoint**: `GET /note_tool/board/`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Success Response (200)**:
+  ```json
+  [
+    {
+      "id": 1,
+      "user_id": "user_line_id_123",
+      "name": "我的白板",
+      "created_at": "2026-02-02T12:00:00.000Z"
+    }
+  ]
+  ```
+
+### 2. 新增白板
+
+- **Endpoint**: `POST /note_tool/board/`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Request Body**:
+  ```json
+  {
+    "name": "新白板"
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "id": 2,
+    "user_id": "user_line_id_123",
+    "name": "新白板",
+    "created_at": "2026-02-02T12:05:00.000Z"
+  }
+  ```
+
+### 3. 取得白板與卡片
+
+- **Endpoint**: `GET /note_tool/board/:boardId`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Success Response (200)**:
+  ```json
+  {
+    "board": {
+      "id": 1,
+      "user_id": "user_line_id_123",
+      "name": "我的白板",
+      "created_at": "2026-02-02T12:00:00.000Z"
+    },
+    "cards": [
+      {
+        "id": 10,
+        "user_id": "user_line_id_123",
+        "title": "卡片標題",
+        "content": "卡片內容",
+        "created_at": "2026-02-02T12:10:00.000Z",
+        "updated_at": "2026-02-02T12:10:00.000Z",
+        "x_pos": 0,
+        "y_pos": 0
+      }
+    ]
+  }
+  ```
+- **Error Response (404)**:
+  ```json
+  {
+    "message": "找不到白板"
+  }
+  ```
+
+### 4. 白板內新增卡片
+
+- **Endpoint**: `POST /note_tool/board/:boardId/cards`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Request Body**:
+  ```json
+  {
+    "title": "卡片標題",
+    "content": "卡片內容"
+  }
+  ```
+
+### 5. 更新卡片在白板的位置
+
+- **Endpoint**: `PUT /note_tool/board/:boardId/cards/:cardId`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Request Body**:
+  ```json
+  {
+    "x_pos": 120,
+    "y_pos": 80
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "board_id": 1,
+    "card_id": 11,
+    "x_pos": 120,
+    "y_pos": 80
+  }
+  ```
+
+### 6. 將既有卡片加入白板
+
+- **Endpoint**: `POST /note_tool/board/:boardId/cards/:cardId`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Success Response (201)**:
+  ```json
+  {
+    "board_id": 1,
+    "card_id": 4,
+    "x_pos": 0,
+    "y_pos": 0
+  }
+  ```
+
+### 7. 從白板移除卡片
+
+- **Endpoint**: `DELETE /note_tool/board/:boardId/cards/:cardId`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Success Response**: `204 No Content`
+- **Success Response (201)**:
+  ```json
+  {
+    "card": {
+      "id": 11,
+      "user_id": "user_line_id_123",
+      "title": "卡片標題",
+      "content": "卡片內容",
+      "created_at": "2026-02-02T12:12:00.000Z",
+      "updated_at": "2026-02-02T12:12:00.000Z"
+    },
+    "boardCard": {
+      "board_id": 1,
+      "card_id": 11,
+      "x_pos": 0,
+      "y_pos": 0
+    }
+  }
+  ```
+
+---
+
+## 使用者設定 (User Settings)
+
+基礎路徑: `/note_tool/user`
+**注意**: 以下所有 API 都需要驗證。請在 Header 中提供 JWT。
+
+### 1. 取得使用者設定
+
+- **Endpoint**: `GET /note_tool/user/settings`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Success Response (200)**:
+  ```json
+  {
+    "cardOpenMode": "modal",
+    "cardPreviewLength": 120,
+    "theme": "light"
+  }
+  ```
+
+### 2. 更新使用者設定
+
+- **Endpoint**: `PUT /note_tool/user/settings`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Request Body**:
+  ```json
+  {
+    "cardOpenMode": "sidepanel",
+    "cardPreviewLength": 160,
+    "theme": "light"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "cardOpenMode": "sidepanel",
+    "cardPreviewLength": 160,
+    "theme": "light"
   }
   ```

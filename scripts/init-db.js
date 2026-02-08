@@ -84,8 +84,37 @@ CREATE TABLE IF NOT EXISTS note_tool.users (
   password_hash TEXT,        -- 存儲雜湊後的密碼
   two_factor_enabled BOOLEAN DEFAULT FALSE, -- 是否啟用 2FA
   two_factor_secret TEXT,                   -- 存放 TOTP 的 Secret 金鑰
+  settings JSONB DEFAULT '{}'::jsonb,       -- 使用者設定
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ✅ 補齊既有資料庫缺少的欄位
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='users' AND column_name='two_factor_enabled'
+  ) THEN
+    ALTER TABLE note_tool.users ADD COLUMN two_factor_enabled BOOLEAN DEFAULT FALSE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='users' AND column_name='two_factor_secret'
+  ) THEN
+    ALTER TABLE note_tool.users ADD COLUMN two_factor_secret TEXT;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='users' AND column_name='settings'
+  ) THEN
+    ALTER TABLE note_tool.users ADD COLUMN settings JSONB DEFAULT '{}'::jsonb;
+  END IF;
+END $$;
 
 -- === 2. 卡片表 (核心內容) ===
 CREATE TABLE IF NOT EXISTS note_tool.cards (

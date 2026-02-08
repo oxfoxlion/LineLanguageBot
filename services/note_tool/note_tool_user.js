@@ -48,7 +48,7 @@ export  async function getUserById(id) {
  */
 export async function getFullUserById(id) {
     const sql = `
-    SELECT id, email, display_name, password_hash, two_factor_enabled, two_factor_secret
+    SELECT id, email, display_name, password_hash, two_factor_enabled, two_factor_secret, settings
     FROM note_tool.users
     WHERE id = $1;
     `;
@@ -61,7 +61,7 @@ export async function getFullUserById(id) {
  */
 export async function getUserByEmail(email) {
     const sql = `
-    SELECT id, email, display_name, password_hash, two_factor_enabled, two_factor_secret
+    SELECT id, email, display_name, password_hash, two_factor_enabled, two_factor_secret, settings
     FROM note_tool.users
     WHERE email = $1;
     `;
@@ -82,4 +82,31 @@ export async function updateTwoFactorSecret(id, secret, enabled = false) {
     `;
     const { rows } = await query(sql, [id, secret, enabled]);
     return rows[0];
+}
+
+/**
+ * 取得使用者設定
+ */
+export async function getUserSettings(id) {
+    const sql = `
+    SELECT settings
+    FROM note_tool.users
+    WHERE id = $1;
+    `;
+    const { rows } = await query(sql, [id]);
+    return rows[0]?.settings ?? null;
+}
+
+/**
+ * 更新使用者設定 (partial merge)
+ */
+export async function updateUserSettings(id, settings) {
+    const sql = `
+    UPDATE note_tool.users
+    SET settings = COALESCE(settings, '{}'::jsonb) || $2::jsonb
+    WHERE id = $1
+    RETURNING settings;
+    `;
+    const { rows } = await query(sql, [id, JSON.stringify(settings)]);
+    return rows[0]?.settings ?? null;
 }

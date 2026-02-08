@@ -1,5 +1,6 @@
 // src/services/discord/discordBot.js
-import { Client, GatewayIntentBits, Events } from 'discord.js'; // 1. 多引入 Events
+import discord from 'discord.js';
+const { Client, Intents } = discord;
 import dotenv from 'dotenv';
 import { chatWithOpenAI } from "../openai/openai_keep.js";
 import { makeConvId, ensureConversation, insertUserMessage, insertAssistantMessage, getRecentMessages } from "../messages.js";
@@ -9,9 +10,8 @@ dotenv.config();
 // 加上 export 讓外部也能存取 client 狀態
 export const client = new Client({
     intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        Intents.FLAGS.GUILDS,
+        Intents.FLAGS.GUILD_MESSAGES
     ]
 });
 
@@ -19,13 +19,13 @@ const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 
 // 解決 DeprecationWarning: 使用 Events.ClientReady 代替字串 'ready'
-client.once(Events.ClientReady, (c) => {
+client.once('ready', (c) => {
     console.log(`Discord 機器人已上線：${c.user.tag}`);
 });
 
 client.login(DISCORD_TOKEN);
 
-client.on(Events.MessageCreate, async (message) => {
+client.on('messageCreate', async (message) => {
     console.log(`--- [Discord 訊息接收] ---`);
     console.log(`頻道名稱: ${message.channel.name || '私訊'}`);
     console.log(`頻道 ID: ${message.channelId}`);
@@ -76,4 +76,3 @@ export default async function sendDiscordMessage(messageContent) {
         console.error('發送錯誤:', error);
     }
 }
-
