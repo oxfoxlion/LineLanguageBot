@@ -8,12 +8,29 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_fallback_secret';
 export const authMiddleware = (req, res, next) => {
   // 1. 從 Header 取得 Token (格式通常為 Authorization: Bearer <token>)
   const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: '未提供驗證憑證，請先登入' });
+  const cookieHeader = req.headers.cookie || '';
+  const cookies = Object.fromEntries(
+    cookieHeader
+      .split(';')
+      .map((pair) => pair.trim())
+      .filter(Boolean)
+      .map((pair) => {
+        const index = pair.indexOf('=');
+        if (index === -1) return [pair, ''];
+        return [pair.slice(0, index), decodeURIComponent(pair.slice(index + 1))];
+      })
+  );
+
+  let token = '';
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (cookies.note_tool_token) {
+    token = cookies.note_tool_token;
   }
 
-  const token = authHeader.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: '未提供驗證憑證，請先登入' });
+  }
 
   try {
     // 2. 驗證 Token 是否有效

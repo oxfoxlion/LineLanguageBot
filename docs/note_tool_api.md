@@ -90,11 +90,12 @@
   ```json
   {
     "qrCodeUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "otpauthUrl": "otpauth://totp/ShaoNoteTool:user%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=ShaoNoteTool",
     "secret": "JBSWY3DPEHPK3PXP",
     "userId": "user_line_id_123"
   }
   ```
-  > **注意**: `secret` 供使用者無法掃描 QR Code 時手動輸入。
+  > **注意**: `secret` 供使用者無法掃描 QR Code 時手動輸入；`otpauthUrl` 可直接點擊開啟驗證器 App。
 
 ### 4. 驗證 2FA (啟用或登入)
 

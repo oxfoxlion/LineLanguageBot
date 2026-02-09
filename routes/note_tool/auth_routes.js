@@ -8,6 +8,13 @@ import { createUser, getUserByEmail, getFullUserById, updateTwoFactorSecret } fr
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your_fallback_secret';
+const COOKIE_NAME = 'note_tool_token';
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: 'lax',
+  secure: process.env.NODE_ENV === 'production',
+  maxAge: 1000 * 60 * 60 * 24,
+};
 
 // === 1. 註冊 ===
 router.post('/register', async (req, res) => {
@@ -45,6 +52,7 @@ router.post('/login', async (req, res) => {
 
     // 未啟用 2FA，直接發放 JWT
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1d' });
+    res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
     res.json({ message: '登入成功', token, userId: user.id });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -69,7 +77,7 @@ router.post('/2fa/setup', authMiddleware, async (req, res) => {
     const qrCodeUrl = await QRCode.toDataURL(otpauth);
     // 先將 secret 存入資料庫，但尚未啟用 enabled
     await updateTwoFactorSecret(userId, secret, false);
-    res.json({ qrCodeUrl, secret, userId }); // 仍回傳 secret 方便手動輸入
+    res.json({ qrCodeUrl, secret, userId, otpauthUrl: otpauth }); // 仍回傳 secret 方便手動輸入
   } catch (err) {
     res.status(500).json({ message: '生成 QR Code 失敗' });
   }
@@ -108,10 +116,17 @@ router.post('/2fa/verify', async (req, res) => {
 
     // 驗證成功，核發正式 JWT
     const jwtToken = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1d' });
+    res.cookie(COOKIE_NAME, jwtToken, COOKIE_OPTIONS);
     res.json({ message: '驗證成功', token: jwtToken });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+});
+
+// === 5. 登出 ===
+router.post('/logout', (req, res) => {
+  res.clearCookie(COOKIE_NAME, COOKIE_OPTIONS);
+  res.json({ message: '已登出' });
 });
 
 export default router;
