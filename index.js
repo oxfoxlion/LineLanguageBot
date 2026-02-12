@@ -36,11 +36,11 @@ app.use(
   })
 );
 
-//將json轉為javascript物件
-app.use(express.json());
-
 //設定 webhook 路由
 app.use('/webhook', webhookRouter);
+
+//將json轉為javascript物件
+app.use(express.json());
 app.use('/note_tool/auth', noteToolAuthRouter);
 app.use('/note_tool/card', noteToolCardRouter);
 app.use('/note_tool/board', noteToolBoardRouter);
