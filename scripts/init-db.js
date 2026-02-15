@@ -173,6 +173,71 @@ BEGIN
   END IF;
 END $$;
 
+-- === 6. 白板區域表 (矩形區塊) ===
+CREATE TABLE IF NOT EXISTS note_tool.board_regions (
+  id BIGSERIAL PRIMARY KEY,
+  board_id BIGINT NOT NULL REFERENCES note_tool.boards(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  x_pos INTEGER NOT NULL DEFAULT 0,
+  y_pos INTEGER NOT NULL DEFAULT 0,
+  width INTEGER NOT NULL CHECK (width > 0),
+  height INTEGER NOT NULL CHECK (height > 0),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ✅ 補齊既有資料庫缺少的欄位
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='board_regions' AND column_name='updated_at'
+  ) THEN
+    ALTER TABLE note_tool.board_regions ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
+  END IF;
+END $$;
+
+-- === 7. 白板分享連結 ===
+CREATE TABLE IF NOT EXISTS note_tool.board_share_links (
+  id BIGSERIAL PRIMARY KEY,
+  board_id BIGINT NOT NULL REFERENCES note_tool.boards(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  permission TEXT NOT NULL DEFAULT 'read' CHECK (permission IN ('read', 'edit')),
+  expires_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ,
+  created_by TEXT NOT NULL REFERENCES note_tool.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ✅ 補齊既有資料庫缺少的欄位
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='board_share_links' AND column_name='permission'
+  ) THEN
+    ALTER TABLE note_tool.board_share_links ADD COLUMN permission TEXT NOT NULL DEFAULT 'read';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='board_share_links' AND column_name='expires_at'
+  ) THEN
+    ALTER TABLE note_tool.board_share_links ADD COLUMN expires_at TIMESTAMPTZ;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='board_share_links' AND column_name='revoked_at'
+  ) THEN
+    ALTER TABLE note_tool.board_share_links ADD COLUMN revoked_at TIMESTAMPTZ;
+  END IF;
+END $$;
+
 -- ✅ 補齊既有資料庫缺少的欄位
 DO $$
 BEGIN
@@ -188,6 +253,8 @@ END $$;
 -- === 索引優化 ===
 CREATE INDEX IF NOT EXISTS idx_cards_user_id ON note_tool.cards(user_id);
 CREATE INDEX IF NOT EXISTS idx_boards_user_id ON note_tool.boards(user_id);
+CREATE INDEX IF NOT EXISTS idx_board_regions_board_id ON note_tool.board_regions(board_id);
+CREATE INDEX IF NOT EXISTS idx_board_share_links_board_id ON note_tool.board_share_links(board_id);
 `;
 
 (async () => {

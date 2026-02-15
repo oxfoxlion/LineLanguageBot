@@ -375,6 +375,162 @@
 - **Header**: `Authorization: Bearer <your_jwt_token>`
 - **Success Response**: `204 No Content`
 
+### 10. 取得白板區域清單
+
+- **Endpoint**: `GET /note_tool/board/:boardId/regions`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Success Response (200)**:
+  ```json
+  [
+    {
+      "id": 1,
+      "board_id": 1,
+      "name": "重點區",
+      "x_pos": 120,
+      "y_pos": 80,
+      "width": 300,
+      "height": 180,
+      "created_at": "2026-02-15T13:00:00.000Z",
+      "updated_at": "2026-02-15T13:00:00.000Z"
+    }
+  ]
+  ```
+
+### 11. 新增白板區域
+
+- **Endpoint**: `POST /note_tool/board/:boardId/regions`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Request Body**:
+  ```json
+  {
+    "name": "重點區",
+    "x_pos": 120,
+    "y_pos": 80,
+    "width": 300,
+    "height": 180
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "id": 1,
+    "board_id": 1,
+    "name": "重點區",
+    "x_pos": 120,
+    "y_pos": 80,
+    "width": 300,
+    "height": 180,
+    "created_at": "2026-02-15T13:00:00.000Z",
+    "updated_at": "2026-02-15T13:00:00.000Z"
+  }
+  ```
+
+### 12. 更新白板區域
+
+- **Endpoint**: `PUT /note_tool/board/:boardId/regions/:regionId`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Request Body**:
+  ```json
+  {
+    "name": "更新後區域名稱",
+    "x_pos": 150,
+    "y_pos": 90,
+    "width": 320,
+    "height": 200
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "id": 1,
+    "board_id": 1,
+    "name": "更新後區域名稱",
+    "x_pos": 150,
+    "y_pos": 90,
+    "width": 320,
+    "height": 200,
+    "created_at": "2026-02-15T13:00:00.000Z",
+    "updated_at": "2026-02-15T13:05:00.000Z"
+  }
+  ```
+
+### 13. 刪除白板區域
+
+- **Endpoint**: `DELETE /note_tool/board/:boardId/regions/:regionId`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Success Response**: `204 No Content`
+
+### 14. 取得白板分享連結
+
+- **Endpoint**: `GET /note_tool/board/:boardId/share-links`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Success Response (200)**:
+  ```json
+  [
+    {
+      "id": 1,
+      "board_id": 1,
+      "token": "cHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4",
+      "permission": "read",
+      "expires_at": null,
+      "revoked_at": null,
+      "created_by": "user_line_id_123",
+      "created_at": "2026-02-16T01:00:00.000Z"
+    }
+  ]
+  ```
+
+### 15. 建立白板分享連結
+
+- **Endpoint**: `POST /note_tool/board/:boardId/share-links`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Request Body**:
+  ```json
+  {
+    "permission": "read",
+    "expires_in_days": 7
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "id": 2,
+    "board_id": 1,
+    "token": "aBcDefGhijkLmnOPqRsTuvWxYz123456",
+    "permission": "read",
+    "expires_at": "2026-02-23T01:00:00.000Z",
+    "revoked_at": null,
+    "created_by": "user_line_id_123",
+    "created_at": "2026-02-16T01:00:00.000Z"
+  }
+  ```
+
+### 16. 撤銷白板分享連結
+
+- **Endpoint**: `DELETE /note_tool/board/:boardId/share-links/:shareLinkId`
+- **Header**: `Authorization: Bearer <your_jwt_token>`
+- **Success Response**: `204 No Content`
+
+### 17. 透過分享 token 取得白板內容
+
+- **Endpoint**: `GET /note_tool/board/share/:token`
+- **Header**: 不需要 JWT
+- **Success Response (200)**:
+  ```json
+  {
+    "board": {
+      "id": 1,
+      "name": "我的白板"
+    },
+    "cards": [],
+    "regions": [],
+    "share": {
+      "permission": "read",
+      "expires_at": "2026-02-23T01:00:00.000Z"
+    }
+  }
+  ```
+
 ---
 
 ## 使用者設定 (User Settings)
