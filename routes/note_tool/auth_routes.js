@@ -7,14 +7,54 @@ import { authMiddleware } from '../../middlewares/note_tool/auth.js';
 import { createUser, getUserByEmail, getFullUserById, updateTwoFactorSecret } from '../../services/note_tool/note_tool_user.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'your_fallback_secret';
-const COOKIE_NAME = 'note_tool_token';
-const COOKIE_OPTIONS = {
+const JWT_SECRET = process.env.JWT_SECRET;
+const ACCESS_COOKIE_NAME = 'note_tool_token';
+const REFRESH_COOKIE_NAME = 'note_tool_refresh_token';
+const cookieSameSiteRaw = (
+  process.env.COOKIE_SAMESITE || (process.env.NODE_ENV === 'production' ? 'none' : 'lax')
+).toLowerCase();
+const COOKIE_SAMESITE = ['lax', 'strict', 'none'].includes(cookieSameSiteRaw) ? cookieSameSiteRaw : 'lax';
+const cookieSecureRaw = process.env.COOKIE_SECURE;
+const computedCookieSecure =
+  cookieSecureRaw === 'true'
+    ? true
+    : cookieSecureRaw === 'false'
+      ? false
+      : COOKIE_SAMESITE === 'none' || process.env.NODE_ENV === 'production';
+const COOKIE_SECURE = COOKIE_SAMESITE === 'none' ? true : computedCookieSecure;
+const BASE_COOKIE_OPTIONS = {
   httpOnly: true,
-  sameSite: 'lax',
-  secure: process.env.NODE_ENV === 'production',
-  maxAge: 1000 * 60 * 60 * 24,
+  sameSite: COOKIE_SAMESITE,
+  secure: COOKIE_SECURE,
 };
+const ACCESS_TOKEN_EXPIRES_IN = '15m';
+const ACCESS_COOKIE_MAX_AGE = 1000 * 60 * 15;
+const REFRESH_TOKEN_EXPIRES_IN = '30d';
+const REFRESH_COOKIE_MAX_AGE = 1000 * 60 * 60 * 24 * 30;
+
+function issueAccessToken(userId) {
+  return jwt.sign({ userId, type: 'access' }, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
+}
+
+function issueRefreshToken(userId) {
+  return jwt.sign({ userId, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES_IN });
+}
+
+function setAuthCookies(res, accessToken, refreshToken) {
+  res.cookie(ACCESS_COOKIE_NAME, accessToken, {
+    ...BASE_COOKIE_OPTIONS,
+    maxAge: ACCESS_COOKIE_MAX_AGE,
+  });
+  res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
+    ...BASE_COOKIE_OPTIONS,
+    maxAge: REFRESH_COOKIE_MAX_AGE,
+  });
+}
+
+function clearAuthCookies(res) {
+  res.clearCookie(ACCESS_COOKIE_NAME, BASE_COOKIE_OPTIONS);
+  res.clearCookie(REFRESH_COOKIE_NAME, BASE_COOKIE_OPTIONS);
+}
 
 // === 1. 註冊 ===
 router.post('/register', async (req, res) => {
@@ -51,9 +91,10 @@ router.post('/login', async (req, res) => {
     }
 
     // 未啟用 2FA，直接發放 JWT
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1d' });
-    res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
-    res.json({ message: '登入成功', token, userId: user.id });
+    const accessToken = issueAccessToken(user.id);
+    const refreshToken = issueRefreshToken(user.id);
+    setAuthCookies(res, accessToken, refreshToken);
+    res.json({ message: '登入成功', token: accessToken, userId: user.id });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -115,17 +156,53 @@ router.post('/2fa/verify', async (req, res) => {
     }
 
     // 驗證成功，核發正式 JWT
-    const jwtToken = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1d' });
-    res.cookie(COOKIE_NAME, jwtToken, COOKIE_OPTIONS);
-    res.json({ message: '驗證成功', token: jwtToken });
+    const accessToken = issueAccessToken(user.id);
+    const refreshToken = issueRefreshToken(user.id);
+    setAuthCookies(res, accessToken, refreshToken);
+    res.json({ message: '驗證成功', token: accessToken });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
+// === 5. 刷新 Access Token ===
+router.post('/refresh', (req, res) => {
+  const cookieHeader = req.headers.cookie || '';
+  const cookies = Object.fromEntries(
+    cookieHeader
+      .split(';')
+      .map((pair) => pair.trim())
+      .filter(Boolean)
+      .map((pair) => {
+        const index = pair.indexOf('=');
+        if (index === -1) return [pair, ''];
+        return [pair.slice(0, index), decodeURIComponent(pair.slice(index + 1))];
+      })
+  );
+  const refreshToken = cookies[REFRESH_COOKIE_NAME];
+
+  if (!refreshToken) {
+    return res.status(401).json({ message: '缺少 refresh token，請重新登入' });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, JWT_SECRET);
+    if (!decoded?.userId || decoded?.type !== 'refresh') {
+      return res.status(401).json({ message: 'refresh token 無效，請重新登入' });
+    }
+
+    const accessToken = issueAccessToken(decoded.userId);
+    const nextRefreshToken = issueRefreshToken(decoded.userId);
+    setAuthCookies(res, accessToken, nextRefreshToken);
+    return res.json({ token: accessToken });
+  } catch (err) {
+    return res.status(401).json({ message: 'refresh token 無效或已過期，請重新登入' });
+  }
+});
+
 // === 5. 登出 ===
 router.post('/logout', (req, res) => {
-  res.clearCookie(COOKIE_NAME, COOKIE_OPTIONS);
+  clearAuthCookies(res);
   res.json({ message: '已登出' });
 });
 

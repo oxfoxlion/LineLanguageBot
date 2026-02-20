@@ -108,6 +108,12 @@ DISCORD_CHANNEL_ID=your_discord_channel_id
 
 # CORS (前端站點)
 CORS_ORIGIN=http://localhost:3000
+
+# Cookie（跨網域前後端建議）
+# 可選：lax / strict / none
+COOKIE_SAMESITE=none
+# 可選：true / false（若 COOKIE_SAMESITE=none 會自動強制 true）
+COOKIE_SECURE=true
 ```
 
 ## Quick Start

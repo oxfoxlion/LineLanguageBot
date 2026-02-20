@@ -35,6 +35,9 @@ export const authMiddleware = (req, res, next) => {
   try {
     // 2. 驗證 Token 是否有效
     const decoded = jwt.verify(token, JWT_SECRET);
+    if (!decoded?.userId || (decoded?.type && decoded.type !== 'access')) {
+      return res.status(401).json({ message: '憑證類型無效，請重新登入' });
+    }
 
     // 3. 將解析出來的內容 (例如 userId) 塞入 req 物件中
     // 這樣後續的 router 就能透過 req.user.userId 拿到目前登入者的 ID
