@@ -238,6 +238,46 @@ BEGIN
   END IF;
 END $$;
 
+-- === 8. 卡片分享連結 ===
+CREATE TABLE IF NOT EXISTS note_tool.card_share_links (
+  id BIGSERIAL PRIMARY KEY,
+  card_id BIGINT NOT NULL REFERENCES note_tool.cards(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  permission TEXT NOT NULL DEFAULT 'read' CHECK (permission IN ('read', 'edit')),
+  expires_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ,
+  created_by TEXT NOT NULL REFERENCES note_tool.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ✅ 補齊既有資料庫缺少的欄位
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='card_share_links' AND column_name='permission'
+  ) THEN
+    ALTER TABLE note_tool.card_share_links ADD COLUMN permission TEXT NOT NULL DEFAULT 'read';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='card_share_links' AND column_name='expires_at'
+  ) THEN
+    ALTER TABLE note_tool.card_share_links ADD COLUMN expires_at TIMESTAMPTZ;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='card_share_links' AND column_name='revoked_at'
+  ) THEN
+    ALTER TABLE note_tool.card_share_links ADD COLUMN revoked_at TIMESTAMPTZ;
+  END IF;
+END $$;
+
 -- ✅ 補齊既有資料庫缺少的欄位
 DO $$
 BEGIN
@@ -255,6 +295,7 @@ CREATE INDEX IF NOT EXISTS idx_cards_user_id ON note_tool.cards(user_id);
 CREATE INDEX IF NOT EXISTS idx_boards_user_id ON note_tool.boards(user_id);
 CREATE INDEX IF NOT EXISTS idx_board_regions_board_id ON note_tool.board_regions(board_id);
 CREATE INDEX IF NOT EXISTS idx_board_share_links_board_id ON note_tool.board_share_links(board_id);
+CREATE INDEX IF NOT EXISTS idx_card_share_links_card_id ON note_tool.card_share_links(card_id);
 `;
 
 (async () => {

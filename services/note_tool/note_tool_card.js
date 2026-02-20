@@ -75,6 +75,38 @@ export async function getCardsByUser(user_id){
     return rows;
 }
 
+export async function getCardById({ id, user_id }) {
+    const sql = `
+    SELECT * FROM note_tool.cards
+    WHERE id = $1 AND user_id = $2
+    LIMIT 1;
+    `;
+    const { rows } = await query(sql, [id, user_id]);
+    return rows[0];
+}
+
+export async function getCardByIdAny(id) {
+    const sql = `
+    SELECT * FROM note_tool.cards
+    WHERE id = $1
+    LIMIT 1;
+    `;
+    const { rows } = await query(sql, [id]);
+    return rows[0];
+}
+
+export async function getBoardsByCard({ card_id, user_id }) {
+    const sql = `
+    SELECT b.id, b.name
+    FROM note_tool.board_cards bc
+    JOIN note_tool.boards b ON b.id = bc.board_id
+    WHERE bc.card_id = $1 AND b.user_id = $2
+    ORDER BY b.created_at DESC;
+    `;
+    const { rows } = await query(sql, [card_id, user_id]);
+    return rows;
+}
+
 /**編輯卡片
  * @param {BigInt} id - 卡片id
  * @param {string} user_id - 擁有卡片的使用者id
@@ -143,4 +175,47 @@ export async function deleteCard({id,user_id}){
         throw err;
     }
     
+}
+
+export async function listCardShareLinks({ card_id }) {
+    const sql = `
+    SELECT id, card_id, token, permission, expires_at, revoked_at, created_by, created_at
+    FROM note_tool.card_share_links
+    WHERE card_id = $1
+    ORDER BY created_at DESC;
+    `;
+    const { rows } = await query(sql, [card_id]);
+    return rows;
+}
+
+export async function createCardShareLink({ card_id, token, permission, expires_at, created_by }) {
+    const sql = `
+    INSERT INTO note_tool.card_share_links (card_id, token, permission, expires_at, created_by)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING id, card_id, token, permission, expires_at, revoked_at, created_by, created_at;
+    `;
+    const { rows } = await query(sql, [card_id, token, permission, expires_at, created_by]);
+    return rows[0];
+}
+
+export async function revokeCardShareLink({ id, card_id }) {
+    const sql = `
+    UPDATE note_tool.card_share_links
+    SET revoked_at = NOW()
+    WHERE id = $1 AND card_id = $2 AND revoked_at IS NULL
+    RETURNING id, card_id, token, permission, expires_at, revoked_at, created_by, created_at;
+    `;
+    const { rows } = await query(sql, [id, card_id]);
+    return rows[0];
+}
+
+export async function getCardShareLinkByToken(token) {
+    const sql = `
+    SELECT id, card_id, token, permission, expires_at, revoked_at, created_by, created_at
+    FROM note_tool.card_share_links
+    WHERE token = $1
+    LIMIT 1;
+    `;
+    const { rows } = await query(sql, [token]);
+    return rows[0];
 }
