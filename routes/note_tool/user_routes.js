@@ -1,6 +1,6 @@
 import express from 'express';
 import { authMiddleware } from '../../middlewares/note_tool/auth.js';
-import { getUserSettings, updateUserSettings } from '../../services/note_tool/note_tool_user.js';
+import { getUserProfileById, getUserSettings, updateUserSettings } from '../../services/note_tool/note_tool_user.js';
 
 const router = express.Router();
 
@@ -11,6 +11,25 @@ const DEFAULT_SETTINGS = {
 };
 
 router.use(authMiddleware);
+
+// GET /profile: 取得使用者基本資訊
+router.get('/profile', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const profile = await getUserProfileById(userId);
+    if (!profile) {
+      return res.status(404).json({ message: '找不到使用者' });
+    }
+    return res.json({
+      id: profile.id,
+      email: profile.email,
+      displayName: profile.display_name || '',
+      twoFactorEnabled: Boolean(profile.two_factor_enabled),
+    });
+  } catch (err) {
+    return res.status(500).json({ message: '讀取使用者資料時發生錯誤', error: err.message });
+  }
+});
 
 // GET /settings: 取得使用者設定
 router.get('/settings', async (req, res) => {

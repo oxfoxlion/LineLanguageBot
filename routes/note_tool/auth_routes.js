@@ -4,7 +4,13 @@ import jwt from 'jsonwebtoken';
 import { generateSecret, generateURI, verify } from 'otplib';
 import QRCode from 'qrcode';
 import { authMiddleware } from '../../middlewares/note_tool/auth.js';
-import { createUser, getUserByEmail, getFullUserById, updateTwoFactorSecret } from '../../services/note_tool/note_tool_user.js';
+import {
+  createUser,
+  disableTwoFactor,
+  getUserByEmail,
+  getFullUserById,
+  updateTwoFactorSecret,
+} from '../../services/note_tool/note_tool_user.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -86,7 +92,8 @@ router.post('/login', async (req, res) => {
       return res.json({ 
         message: '請輸入兩步驟驗證碼', 
         require2FA: true, 
-        userId: user.id 
+        userId: user.id,
+        displayName: user.display_name || '',
       });
     }
 
@@ -94,7 +101,7 @@ router.post('/login', async (req, res) => {
     const accessToken = issueAccessToken(user.id);
     const refreshToken = issueRefreshToken(user.id);
     setAuthCookies(res, accessToken, refreshToken);
-    res.json({ message: '登入成功', token: accessToken, userId: user.id });
+    res.json({ message: '登入成功', token: accessToken, userId: user.id, displayName: user.display_name || '' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -159,7 +166,7 @@ router.post('/2fa/verify', async (req, res) => {
     const accessToken = issueAccessToken(user.id);
     const refreshToken = issueRefreshToken(user.id);
     setAuthCookies(res, accessToken, refreshToken);
-    res.json({ message: '驗證成功', token: accessToken });
+    res.json({ message: '驗證成功', token: accessToken, displayName: user.display_name || '' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -200,7 +207,21 @@ router.post('/refresh', (req, res) => {
   }
 });
 
-// === 5. 登出 ===
+// === 6. 關閉 2FA ===
+router.post('/2fa/disable', authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const updated = await disableTwoFactor(userId);
+    if (!updated) {
+      return res.status(404).json({ message: '找不到使用者' });
+    }
+    return res.json({ message: 'Two-factor authentication disabled', twoFactorEnabled: false });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || '關閉 2FA 失敗' });
+  }
+});
+
+// === 7. 登出 ===
 router.post('/logout', (req, res) => {
   clearAuthCookies(res);
   res.json({ message: '已登出' });

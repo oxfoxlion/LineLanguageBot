@@ -44,6 +44,19 @@ export  async function getUserById(id) {
 }
 
 /**
+ * 取得前端設定頁需要的使用者資訊
+ */
+export async function getUserProfileById(id) {
+    const sql = `
+    SELECT id, email, display_name, two_factor_enabled
+    FROM note_tool.users
+    WHERE id = $1;
+    `;
+    const { rows } = await query(sql, [id]);
+    return rows[0];
+}
+
+/**
  * 用於 2FA 驗證：透過 ID 取得包含密碼雜湊與 2FA 狀態的使用者資料
  */
 export async function getFullUserById(id) {
@@ -81,6 +94,21 @@ export async function updateTwoFactorSecret(id, secret, enabled = false) {
     RETURNING id, two_factor_enabled;
     `;
     const { rows } = await query(sql, [id, secret, enabled]);
+    return rows[0];
+}
+
+/**
+ * 關閉使用者兩步驟驗證
+ */
+export async function disableTwoFactor(id) {
+    const sql = `
+    UPDATE note_tool.users
+    SET two_factor_enabled = false,
+        two_factor_secret = null
+    WHERE id = $1
+    RETURNING id, two_factor_enabled;
+    `;
+    const { rows } = await query(sql, [id]);
     return rows[0];
 }
 
