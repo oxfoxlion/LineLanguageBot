@@ -93,6 +93,10 @@ function toBoardDescriptionSnippet(description, fallbackName = 'Shared Board') {
   return source.slice(0, 150);
 }
 
+function isValidHexColor(value) {
+  return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value.trim());
+}
+
 async function validateShareLinkOrFail(res, token) {
   const shareLink = await getBoardShareLinkByToken(String(token).trim());
   if (!shareLink) {
@@ -457,7 +461,7 @@ router.post('/:boardId/regions', async (req, res) => {
   try {
     const userId = req.user.userId;
     const { boardId } = req.params;
-    const { name, x_pos, y_pos, width, height } = req.body;
+    const { name, color, x_pos, y_pos, width, height } = req.body;
     const boardIdNum = Number(boardId);
 
     if (!Number.isInteger(boardIdNum) || boardIdNum <= 0) {
@@ -466,6 +470,9 @@ router.post('/:boardId/regions', async (req, res) => {
 
     if (!name || !String(name).trim()) {
       return res.status(400).json({ message: '區域名稱為必填欄位' });
+    }
+    if (color !== undefined && !isValidHexColor(color)) {
+      return res.status(400).json({ message: 'color 必須為 #RRGGBB 格式' });
     }
 
     const x = Number(x_pos);
@@ -487,6 +494,7 @@ router.post('/:boardId/regions', async (req, res) => {
     const region = await createBoardRegion({
       board_id: boardIdNum,
       name: String(name).trim(),
+      color: color === undefined ? null : String(color).trim(),
       x_pos: x,
       y_pos: y,
       width: w,
@@ -503,7 +511,7 @@ router.put('/:boardId/regions/:regionId', async (req, res) => {
   try {
     const userId = req.user.userId;
     const { boardId, regionId } = req.params;
-    const { name, x_pos, y_pos, width, height } = req.body;
+    const { name, color, x_pos, y_pos, width, height } = req.body;
     const boardIdNum = Number(boardId);
     const regionIdNum = Number(regionId);
 
@@ -516,6 +524,9 @@ router.put('/:boardId/regions/:regionId', async (req, res) => {
 
     if (name !== undefined && !String(name).trim()) {
       return res.status(400).json({ message: '區域名稱不可為空白' });
+    }
+    if (color !== undefined && !isValidHexColor(color)) {
+      return res.status(400).json({ message: 'color 必須為 #RRGGBB 格式' });
     }
     if (
       (x_pos !== undefined && !Number.isFinite(Number(x_pos))) ||
@@ -538,6 +549,7 @@ router.put('/:boardId/regions/:regionId', async (req, res) => {
       board_id: boardIdNum,
       id: regionIdNum,
       name: name === undefined ? null : String(name).trim(),
+      color: color === undefined ? null : String(color).trim(),
       x_pos: x_pos === undefined ? null : Number(x_pos),
       y_pos: y_pos === undefined ? null : Number(y_pos),
       width: width === undefined ? null : Number(width),

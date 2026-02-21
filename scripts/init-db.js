@@ -191,6 +191,7 @@ CREATE TABLE IF NOT EXISTS note_tool.board_regions (
   id BIGSERIAL PRIMARY KEY,
   board_id BIGINT NOT NULL REFERENCES note_tool.boards(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT '#38bdf8',
   x_pos INTEGER NOT NULL DEFAULT 0,
   y_pos INTEGER NOT NULL DEFAULT 0,
   width INTEGER NOT NULL CHECK (width > 0),
@@ -202,6 +203,17 @@ CREATE TABLE IF NOT EXISTS note_tool.board_regions (
 -- ✅ 補齊既有資料庫缺少的欄位
 DO $$
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='board_regions' AND column_name='color'
+  ) THEN
+    ALTER TABLE note_tool.board_regions ADD COLUMN color TEXT;
+    UPDATE note_tool.board_regions SET color = '#38bdf8' WHERE color IS NULL;
+    ALTER TABLE note_tool.board_regions ALTER COLUMN color SET DEFAULT '#38bdf8';
+    ALTER TABLE note_tool.board_regions ALTER COLUMN color SET NOT NULL;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1
     FROM information_schema.columns
