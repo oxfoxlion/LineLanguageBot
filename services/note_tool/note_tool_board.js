@@ -1,20 +1,136 @@
 import { query } from "../db.js";
 
-export async function createBoard({ user_id, name, description = null }) {
-  if (!user_id || !name) throw new Error("Missing required fields");
-  const sql = `
-    INSERT INTO note_tool.boards (user_id, name, description, tags)
-    VALUES ($1, $2, $3, $4)
-    RETURNING id, user_id, name, description, tags, created_at, 0 AS card_count;
+const ARCHIVE_FOLDER_KEY = 'archive';
+const ARCHIVE_FOLDER_NAME = 'Archive';
+
+export async function ensureArchiveFolderForUser(user_id) {
+  const upsertSql = `
+    INSERT INTO note_tool.board_folders (user_id, name, is_system, system_key, sort_order)
+    VALUES ($1, $3, TRUE, $2, 0)
+    ON CONFLICT (user_id, system_key)
+    DO UPDATE SET name = EXCLUDED.name, sort_order = 0
+    RETURNING id, user_id, name, is_system, system_key, sort_order, created_at;
   `;
-  const { rows } = await query(sql, [user_id, name, description, []]);
+  const { rows } = await query(upsertSql, [user_id, ARCHIVE_FOLDER_KEY, ARCHIVE_FOLDER_NAME]);
   return rows[0];
 }
 
-export async function getBoardsByUser(user_id) {
+export async function getBoardFoldersByUser(user_id) {
+  await ensureArchiveFolderForUser(user_id);
+  const sql = `
+    SELECT id, user_id, name, is_system, system_key, sort_order, created_at
+    FROM note_tool.board_folders
+    WHERE user_id = $1
+    ORDER BY
+      CASE WHEN system_key = $2 THEN 1 ELSE 0 END,
+      sort_order ASC,
+      id ASC;
+  `;
+  const { rows } = await query(sql, [user_id, ARCHIVE_FOLDER_KEY]);
+  return rows;
+}
+
+export async function getBoardFolderById({ user_id, id }) {
+  const sql = `
+    SELECT id, user_id, name, is_system, system_key, sort_order, created_at
+    FROM note_tool.board_folders
+    WHERE id = $1 AND user_id = $2
+    LIMIT 1;
+  `;
+  const { rows } = await query(sql, [id, user_id]);
+  return rows[0];
+}
+
+export async function createBoardFolder({ user_id, name }) {
+  const nextSortSql = `
+    SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort_order
+    FROM note_tool.board_folders
+    WHERE user_id = $1 AND is_system = FALSE;
+  `;
+  const { rows: nextRows } = await query(nextSortSql, [user_id]);
+  const nextSortOrder = Number(nextRows[0]?.next_sort_order ?? 1);
+
+  const sql = `
+    INSERT INTO note_tool.board_folders (user_id, name, is_system, system_key, sort_order)
+    VALUES ($1, $2, FALSE, NULL, $3)
+    RETURNING id, user_id, name, is_system, system_key, sort_order, created_at;
+  `;
+  const { rows } = await query(sql, [user_id, name, nextSortOrder]);
+  return rows[0];
+}
+
+export async function updateBoardFolderName({ user_id, id, name }) {
+  const target = await getBoardFolderById({ user_id, id });
+  if (!target) return null;
+  if (target.is_system) {
+    const err = new Error('SYSTEM_FOLDER_CANNOT_RENAME');
+    err.code = 'SYSTEM_FOLDER_CANNOT_RENAME';
+    throw err;
+  }
+  const sql = `
+    UPDATE note_tool.board_folders
+    SET name = $3
+    WHERE user_id = $1 AND id = $2
+    RETURNING id, user_id, name, is_system, system_key, sort_order, created_at;
+  `;
+  const { rows } = await query(sql, [user_id, id, name]);
+  return rows[0];
+}
+
+export async function reorderBoardFolders({ user_id, folder_ids }) {
+  const all = await getBoardFoldersByUser(user_id);
+  const custom = all.filter((item) => !item.is_system);
+  const customIdSet = new Set(custom.map((item) => item.id));
+  const requested = folder_ids.map((id) => Number(id)).filter((id) => customIdSet.has(id));
+  const tail = custom.map((item) => item.id).filter((id) => !requested.includes(id));
+  const ordered = [...requested, ...tail];
+  if (ordered.length === 0) return all;
+
+  const updates = ordered.map((id, index) =>
+    query(
+      `UPDATE note_tool.board_folders SET sort_order = $3 WHERE user_id = $1 AND id = $2 AND is_system = FALSE`,
+      [user_id, id, index + 1]
+    )
+  );
+  await Promise.all(updates);
+  return getBoardFoldersByUser(user_id);
+}
+
+export async function deleteBoardFolder({ user_id, id }) {
+  const target = await getBoardFolderById({ user_id, id });
+  if (!target) return null;
+  if (target.is_system) {
+    const err = new Error('SYSTEM_FOLDER_CANNOT_DELETE');
+    err.code = 'SYSTEM_FOLDER_CANNOT_DELETE';
+    throw err;
+  }
+
+  await query(`UPDATE note_tool.boards SET folder_id = NULL WHERE user_id = $1 AND folder_id = $2`, [user_id, id]);
+  const { rows } = await query(
+    `DELETE FROM note_tool.board_folders WHERE user_id = $1 AND id = $2 RETURNING id, user_id, name, is_system, system_key, sort_order, created_at`,
+    [user_id, id]
+  );
+  return rows[0];
+}
+
+export async function createBoard({ user_id, name, description = null, folder_id = null }) {
+  if (!user_id || !name) throw new Error("Missing required fields");
+  await ensureArchiveFolderForUser(user_id);
+  const sql = `
+    INSERT INTO note_tool.boards (user_id, folder_id, name, description, tags)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING id, user_id, folder_id, name, description, tags, created_at, 0 AS card_count;
+  `;
+  const { rows } = await query(sql, [user_id, folder_id, name, description, []]);
+  return rows[0];
+}
+
+export async function getBoardsByUser(user_id, { folder_id = null } = {}) {
+  const archiveFolder = await ensureArchiveFolderForUser(user_id);
   const sql = `
     SELECT b.id,
            b.user_id,
+           b.folder_id,
            b.name,
            b.description,
            b.tags,
@@ -23,16 +139,21 @@ export async function getBoardsByUser(user_id) {
     FROM note_tool.boards b
     LEFT JOIN note_tool.board_cards bc ON bc.board_id = b.id
     WHERE b.user_id = $1
+      AND (
+        ($2::bigint IS NOT NULL AND b.folder_id = $2::bigint)
+        OR
+        ($2::bigint IS NULL AND (b.folder_id IS NULL OR b.folder_id <> $3::bigint))
+      )
     GROUP BY b.id
     ORDER BY b.created_at DESC;
   `;
-  const { rows } = await query(sql, [user_id]);
+  const { rows } = await query(sql, [user_id, folder_id, archiveFolder.id]);
   return rows;
 }
 
 export async function getBoardById({ id, user_id }) {
   const sql = `
-    SELECT id, user_id, name, description, tags, created_at
+    SELECT id, user_id, folder_id, name, description, tags, created_at
     FROM note_tool.boards
     WHERE id = $1 AND user_id = $2;
   `;
@@ -42,7 +163,7 @@ export async function getBoardById({ id, user_id }) {
 
 export async function getBoardByIdAny(id) {
   const sql = `
-    SELECT id, user_id, name, description, tags, created_at
+    SELECT id, user_id, folder_id, name, description, tags, created_at
     FROM note_tool.boards
     WHERE id = $1;
   `;
@@ -50,17 +171,18 @@ export async function getBoardByIdAny(id) {
   return rows[0];
 }
 
-export async function updateBoard({ id, user_id, name, tags, description }) {
+export async function updateBoard({ id, user_id, name, tags, description, folder_id_set = false, folder_id = null }) {
   if (!id || !user_id || !name) throw new Error("Missing required fields");
   const sql = `
     UPDATE note_tool.boards
     SET name = $3,
         tags = COALESCE($4, tags),
-        description = COALESCE($5, description)
+        description = COALESCE($5, description),
+        folder_id = CASE WHEN $6 THEN $7 ELSE folder_id END
     WHERE id = $1 AND user_id = $2
-    RETURNING id, user_id, name, description, tags, created_at;
+    RETURNING id, user_id, folder_id, name, description, tags, created_at;
   `;
-  const { rows } = await query(sql, [id, user_id, name, tags, description]);
+  const { rows } = await query(sql, [id, user_id, name, tags, description, folder_id_set, folder_id]);
   return rows[0];
 }
 

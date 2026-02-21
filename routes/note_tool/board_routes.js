@@ -6,14 +6,20 @@ import { authMiddleware } from '../../middlewares/note_tool/auth.js';
 import { createCard } from '../../services/note_tool/note_tool_card.js';
 import {
   addCardToBoard,
+  createBoardFolder,
   createBoardRegion,
   createBoardShareLink,
   createBoard,
   deleteBoard,
+  deleteBoardFolder,
   deleteBoardRegion,
   getBoardByIdAny,
+  getBoardFolderById,
   getBoardShareLinkByToken,
   getBoardById,
+  getBoardFoldersByUser,
+  reorderBoardFolders,
+  updateBoardFolderName,
   getBoardsByUser,
   getCardsByBoardId,
   getCardsByBoard,
@@ -229,10 +235,133 @@ router.use(authMiddleware);
 router.get('/', async (req, res) => {
   try {
     const userId = req.user.userId;
-    const boards = await getBoardsByUser(userId);
+    const folderIdRaw = req.query?.folder_id;
+    const folderId =
+      folderIdRaw === undefined || folderIdRaw === null || String(folderIdRaw).trim() === ''
+        ? null
+        : Number(folderIdRaw);
+    if (folderId !== null && (!Number.isInteger(folderId) || folderId <= 0)) {
+      return res.status(400).json({ message: 'folder_id 格式錯誤' });
+    }
+
+    if (folderId !== null) {
+      const folder = await getBoardFolderById({ user_id: userId, id: folderId });
+      if (!folder) {
+        return res.status(404).json({ message: '找不到資料夾' });
+      }
+    }
+
+    const boards = await getBoardsByUser(userId, { folder_id: folderId });
     res.json(boards);
   } catch (err) {
     res.status(500).json({ message: '讀取白板時發生錯誤', error: err.message });
+  }
+});
+
+// GET /folders: 取得資料夾清單（含封存）
+router.get('/folders', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const folders = await getBoardFoldersByUser(userId);
+    res.json(folders);
+  } catch (err) {
+    res.status(500).json({ message: '讀取資料夾時發生錯誤', error: err.message });
+  }
+});
+
+// POST /folders: 新增資料夾
+router.post('/folders', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const nameRaw = typeof req.body?.name === 'string' ? req.body.name : '';
+    const name = nameRaw.trim();
+    if (!name) {
+      return res.status(400).json({ message: '資料夾名稱為必填欄位' });
+    }
+    if (name.length > 60) {
+      return res.status(400).json({ message: '資料夾名稱長度不可超過 60 字元' });
+    }
+    const folder = await createBoardFolder({ user_id: userId, name });
+    res.status(201).json(folder);
+  } catch (err) {
+    if (err?.code === '23505') {
+      return res.status(409).json({ message: '資料夾名稱已存在' });
+    }
+    res.status(500).json({ message: '建立資料夾時發生錯誤', error: err.message });
+  }
+});
+
+// PUT /folders/reorder: 重新排序資料夾
+router.put('/folders/reorder', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const folderIds = Array.isArray(req.body?.folder_ids) ? req.body.folder_ids : null;
+    if (!folderIds) {
+      return res.status(400).json({ message: 'folder_ids 必須為陣列' });
+    }
+    if (folderIds.some((id) => !Number.isInteger(Number(id)) || Number(id) <= 0)) {
+      return res.status(400).json({ message: 'folder_ids 內容格式錯誤' });
+    }
+    const folders = await reorderBoardFolders({
+      user_id: userId,
+      folder_ids: folderIds.map((id) => Number(id)),
+    });
+    res.json(folders);
+  } catch (err) {
+    res.status(500).json({ message: '更新資料夾排序時發生錯誤', error: err.message });
+  }
+});
+
+// PUT /folders/:folderId: 重新命名資料夾（系統資料夾不可改名）
+router.put('/folders/:folderId', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const folderId = Number(req.params.folderId);
+    const nameRaw = typeof req.body?.name === 'string' ? req.body.name : '';
+    const name = nameRaw.trim();
+    if (!Number.isInteger(folderId) || folderId <= 0) {
+      return res.status(400).json({ message: 'folderId 格式錯誤' });
+    }
+    if (!name) {
+      return res.status(400).json({ message: '資料夾名稱為必填欄位' });
+    }
+    if (name.length > 60) {
+      return res.status(400).json({ message: '資料夾名稱長度不可超過 60 字元' });
+    }
+    const updated = await updateBoardFolderName({ user_id: userId, id: folderId, name });
+    if (!updated) {
+      return res.status(404).json({ message: '找不到資料夾' });
+    }
+    res.json(updated);
+  } catch (err) {
+    if (err?.code === '23505') {
+      return res.status(409).json({ message: '資料夾名稱已存在' });
+    }
+    if (err?.code === 'SYSTEM_FOLDER_CANNOT_RENAME') {
+      return res.status(400).json({ message: '系統資料夾不可改名' });
+    }
+    res.status(500).json({ message: '更新資料夾時發生錯誤', error: err.message });
+  }
+});
+
+// DELETE /folders/:folderId: 刪除自訂資料夾（系統資料夾不可刪）
+router.delete('/folders/:folderId', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const folderId = Number(req.params.folderId);
+    if (!Number.isInteger(folderId) || folderId <= 0) {
+      return res.status(400).json({ message: 'folderId 格式錯誤' });
+    }
+    const deleted = await deleteBoardFolder({ user_id: userId, id: folderId });
+    if (!deleted) {
+      return res.status(404).json({ message: '找不到資料夾' });
+    }
+    res.json(deleted);
+  } catch (err) {
+    if (err?.code === 'SYSTEM_FOLDER_CANNOT_DELETE') {
+      return res.status(400).json({ message: '系統資料夾不可刪除' });
+    }
+    res.status(500).json({ message: '刪除資料夾時發生錯誤', error: err.message });
   }
 });
 
@@ -240,14 +369,29 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { name, description } = req.body;
+    const { name, description, folder_id } = req.body;
     if (!name) {
       return res.status(400).json({ message: '白板名稱為必填欄位' });
     }
     if (description !== undefined && typeof description !== 'string') {
       return res.status(400).json({ message: 'description 必須為字串' });
     }
-    const board = await createBoard({ user_id: userId, name, description: description ?? null });
+    if (folder_id !== undefined && folder_id !== null && (!Number.isInteger(Number(folder_id)) || Number(folder_id) <= 0)) {
+      return res.status(400).json({ message: 'folder_id 格式錯誤' });
+    }
+    const normalizedFolderId = folder_id === undefined || folder_id === null ? null : Number(folder_id);
+    if (normalizedFolderId !== null) {
+      const folder = await getBoardFolderById({ user_id: userId, id: normalizedFolderId });
+      if (!folder) {
+        return res.status(404).json({ message: '找不到資料夾' });
+      }
+    }
+    const board = await createBoard({
+      user_id: userId,
+      name,
+      description: description ?? null,
+      folder_id: normalizedFolderId,
+    });
     res.status(201).json(board);
   } catch (err) {
     res.status(500).json({ message: '建立白板時發生錯誤', error: err.message });
@@ -276,6 +420,8 @@ router.put('/:boardId', async (req, res) => {
     const userId = req.user.userId;
     const { boardId } = req.params;
     const { name, tags, description } = req.body;
+    const hasFolderId = Object.prototype.hasOwnProperty.call(req.body || {}, 'folder_id');
+    const folderIdRaw = req.body?.folder_id;
 
     if (!name) {
       return res.status(400).json({ message: '白板名稱為必填欄位' });
@@ -286,6 +432,17 @@ router.put('/:boardId', async (req, res) => {
     if (description !== undefined && typeof description !== 'string') {
       return res.status(400).json({ message: 'description 必須為字串' });
     }
+    if (hasFolderId && folderIdRaw !== null && (!Number.isInteger(Number(folderIdRaw)) || Number(folderIdRaw) <= 0)) {
+      return res.status(400).json({ message: 'folder_id 格式錯誤' });
+    }
+
+    const normalizedFolderId = !hasFolderId || folderIdRaw === null ? null : Number(folderIdRaw);
+    if (hasFolderId && normalizedFolderId !== null) {
+      const folder = await getBoardFolderById({ user_id: userId, id: normalizedFolderId });
+      if (!folder) {
+        return res.status(404).json({ message: '找不到資料夾' });
+      }
+    }
 
     const updated = await updateBoard({
       id: boardId,
@@ -293,6 +450,8 @@ router.put('/:boardId', async (req, res) => {
       name,
       tags: tags?.map((tag) => String(tag)),
       description,
+      folder_id_set: hasFolderId,
+      folder_id: normalizedFolderId,
     });
     if (!updated) {
       return res.status(404).json({ message: '找不到白板' });

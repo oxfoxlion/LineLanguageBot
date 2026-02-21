@@ -133,10 +133,24 @@ CREATE TABLE IF NOT EXISTS note_tool.card_links (
   PRIMARY KEY (from_card_id, to_card_id)
 );
 
--- === 4. 白板表 (容器) ===
+-- === 4. 白板資料夾 ===
+CREATE TABLE IF NOT EXISTS note_tool.board_folders (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES note_tool.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  is_system BOOLEAN NOT NULL DEFAULT FALSE,
+  system_key TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT uq_board_folders_user_name UNIQUE (user_id, name),
+  CONSTRAINT uq_board_folders_user_system_key UNIQUE (user_id, system_key)
+);
+
+-- === 5. 白板表 (容器) ===
 CREATE TABLE IF NOT EXISTS note_tool.boards (
   id BIGSERIAL PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES note_tool.users(id) ON DELETE CASCADE,
+  folder_id BIGINT REFERENCES note_tool.board_folders(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
   description TEXT,
   tags TEXT[] DEFAULT '{}',
@@ -153,9 +167,53 @@ BEGIN
   ) THEN
     ALTER TABLE note_tool.boards ADD COLUMN description TEXT;
   END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='boards' AND column_name='folder_id'
+  ) THEN
+    ALTER TABLE note_tool.boards ADD COLUMN folder_id BIGINT REFERENCES note_tool.board_folders(id) ON DELETE SET NULL;
+  END IF;
 END $$;
 
--- === 5. 白板與卡片關聯表 (包含座標佈局) ===
+-- ✅ 補齊 board_folders 缺少的欄位
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='board_folders' AND column_name='sort_order'
+  ) THEN
+    ALTER TABLE note_tool.board_folders ADD COLUMN sort_order INTEGER DEFAULT 0;
+    WITH ordered AS (
+      SELECT id, ROW_NUMBER() OVER (
+        PARTITION BY user_id
+        ORDER BY CASE WHEN system_key = 'archive' THEN 0 ELSE 1 END, created_at ASC, id ASC
+      ) - 1 AS new_order
+      FROM note_tool.board_folders
+    )
+    UPDATE note_tool.board_folders bf
+    SET sort_order = ordered.new_order
+    FROM ordered
+    WHERE bf.id = ordered.id;
+    ALTER TABLE note_tool.board_folders ALTER COLUMN sort_order SET NOT NULL;
+    ALTER TABLE note_tool.board_folders ALTER COLUMN sort_order SET DEFAULT 0;
+  END IF;
+END $$;
+
+-- ✅ 確保每位使用者都有「封存」系統資料夾
+INSERT INTO note_tool.board_folders (user_id, name, is_system, system_key, sort_order)
+SELECT u.id, 'Archive', TRUE, 'archive', 0
+FROM note_tool.users u
+ON CONFLICT (user_id, system_key) DO NOTHING;
+
+-- ✅ 同步既有封存資料夾名稱為英文
+UPDATE note_tool.board_folders
+SET name = 'Archive'
+WHERE system_key = 'archive' AND name <> 'Archive';
+
+-- === 6. 白板與卡片關聯表 (包含座標佈局) ===
 CREATE TABLE IF NOT EXISTS note_tool.board_cards (
   board_id BIGINT REFERENCES note_tool.boards(id) ON DELETE CASCADE,
   card_id BIGINT REFERENCES note_tool.cards(id) ON DELETE CASCADE,
@@ -186,7 +244,7 @@ BEGIN
   END IF;
 END $$;
 
--- === 6. 白板區域表 (矩形區塊) ===
+-- === 7. 白板區域表 (矩形區塊) ===
 CREATE TABLE IF NOT EXISTS note_tool.board_regions (
   id BIGSERIAL PRIMARY KEY,
   board_id BIGINT NOT NULL REFERENCES note_tool.boards(id) ON DELETE CASCADE,
@@ -223,7 +281,7 @@ BEGIN
   END IF;
 END $$;
 
--- === 7. 白板分享連結 ===
+-- === 8. 白板分享連結 ===
 CREATE TABLE IF NOT EXISTS note_tool.board_share_links (
   id BIGSERIAL PRIMARY KEY,
   board_id BIGINT NOT NULL REFERENCES note_tool.boards(id) ON DELETE CASCADE,
@@ -272,7 +330,7 @@ BEGIN
   END IF;
 END $$;
 
--- === 8. 卡片分享連結 ===
+-- === 9. 卡片分享連結 ===
 CREATE TABLE IF NOT EXISTS note_tool.card_share_links (
   id BIGSERIAL PRIMARY KEY,
   card_id BIGINT NOT NULL REFERENCES note_tool.cards(id) ON DELETE CASCADE,
@@ -336,6 +394,8 @@ END $$;
 -- === 索引優化 ===
 CREATE INDEX IF NOT EXISTS idx_cards_user_id ON note_tool.cards(user_id);
 CREATE INDEX IF NOT EXISTS idx_boards_user_id ON note_tool.boards(user_id);
+CREATE INDEX IF NOT EXISTS idx_boards_folder_id ON note_tool.boards(folder_id);
+CREATE INDEX IF NOT EXISTS idx_board_folders_user_id ON note_tool.board_folders(user_id);
 CREATE INDEX IF NOT EXISTS idx_board_regions_board_id ON note_tool.board_regions(board_id);
 CREATE INDEX IF NOT EXISTS idx_board_share_links_board_id ON note_tool.board_share_links(board_id);
 CREATE INDEX IF NOT EXISTS idx_card_share_links_card_id ON note_tool.card_share_links(card_id);
