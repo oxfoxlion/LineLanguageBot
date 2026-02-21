@@ -1,13 +1,13 @@
 import { query } from "../db.js";
 
-export async function createBoard({ user_id, name }) {
+export async function createBoard({ user_id, name, description = null }) {
   if (!user_id || !name) throw new Error("Missing required fields");
   const sql = `
-    INSERT INTO note_tool.boards (user_id, name, tags)
-    VALUES ($1, $2, $3)
-    RETURNING id, user_id, name, tags, created_at, 0 AS card_count;
+    INSERT INTO note_tool.boards (user_id, name, description, tags)
+    VALUES ($1, $2, $3, $4)
+    RETURNING id, user_id, name, description, tags, created_at, 0 AS card_count;
   `;
-  const { rows } = await query(sql, [user_id, name, []]);
+  const { rows } = await query(sql, [user_id, name, description, []]);
   return rows[0];
 }
 
@@ -16,6 +16,7 @@ export async function getBoardsByUser(user_id) {
     SELECT b.id,
            b.user_id,
            b.name,
+           b.description,
            b.tags,
            b.created_at,
            COUNT(bc.card_id)::int AS card_count
@@ -31,7 +32,7 @@ export async function getBoardsByUser(user_id) {
 
 export async function getBoardById({ id, user_id }) {
   const sql = `
-    SELECT id, user_id, name, tags, created_at
+    SELECT id, user_id, name, description, tags, created_at
     FROM note_tool.boards
     WHERE id = $1 AND user_id = $2;
   `;
@@ -41,7 +42,7 @@ export async function getBoardById({ id, user_id }) {
 
 export async function getBoardByIdAny(id) {
   const sql = `
-    SELECT id, user_id, name, tags, created_at
+    SELECT id, user_id, name, description, tags, created_at
     FROM note_tool.boards
     WHERE id = $1;
   `;
@@ -49,16 +50,17 @@ export async function getBoardByIdAny(id) {
   return rows[0];
 }
 
-export async function updateBoard({ id, user_id, name, tags }) {
+export async function updateBoard({ id, user_id, name, tags, description }) {
   if (!id || !user_id || !name) throw new Error("Missing required fields");
   const sql = `
     UPDATE note_tool.boards
     SET name = $3,
-        tags = COALESCE($4, tags)
+        tags = COALESCE($4, tags),
+        description = COALESCE($5, description)
     WHERE id = $1 AND user_id = $2
-    RETURNING id, user_id, name, tags, created_at;
+    RETURNING id, user_id, name, description, tags, created_at;
   `;
-  const { rows } = await query(sql, [id, user_id, name, tags]);
+  const { rows } = await query(sql, [id, user_id, name, tags, description]);
   return rows[0];
 }
 
@@ -183,22 +185,25 @@ export async function deleteBoardRegion({ board_id, id }) {
 
 export async function listBoardShareLinks({ board_id }) {
   const sql = `
-    SELECT id, board_id, token, permission, expires_at, revoked_at, created_by, created_at
+    SELECT id, board_id, token, permission, expires_at, revoked_at, created_by, created_at,
+           (password_hash IS NOT NULL) AS password_protected
     FROM note_tool.board_share_links
     WHERE board_id = $1
+      AND revoked_at IS NULL
     ORDER BY created_at DESC;
   `;
   const { rows } = await query(sql, [board_id]);
   return rows;
 }
 
-export async function createBoardShareLink({ board_id, token, permission, expires_at, created_by }) {
+export async function createBoardShareLink({ board_id, token, permission, expires_at, created_by, password_hash }) {
   const sql = `
-    INSERT INTO note_tool.board_share_links (board_id, token, permission, expires_at, created_by)
-    VALUES ($1, $2, $3, $4, $5)
-    RETURNING id, board_id, token, permission, expires_at, revoked_at, created_by, created_at;
+    INSERT INTO note_tool.board_share_links (board_id, token, permission, expires_at, created_by, password_hash)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING id, board_id, token, permission, expires_at, revoked_at, created_by, created_at,
+              (password_hash IS NOT NULL) AS password_protected;
   `;
-  const { rows } = await query(sql, [board_id, token, permission, expires_at, created_by]);
+  const { rows } = await query(sql, [board_id, token, permission, expires_at, created_by, password_hash ?? null]);
   return rows[0];
 }
 
@@ -207,7 +212,8 @@ export async function revokeBoardShareLink({ id, board_id }) {
     UPDATE note_tool.board_share_links
     SET revoked_at = NOW()
     WHERE id = $1 AND board_id = $2 AND revoked_at IS NULL
-    RETURNING id, board_id, token, permission, expires_at, revoked_at, created_by, created_at;
+    RETURNING id, board_id, token, permission, expires_at, revoked_at, created_by, created_at,
+              (password_hash IS NOT NULL) AS password_protected;
   `;
   const { rows } = await query(sql, [id, board_id]);
   return rows[0];
@@ -215,7 +221,7 @@ export async function revokeBoardShareLink({ id, board_id }) {
 
 export async function getBoardShareLinkByToken(token) {
   const sql = `
-    SELECT id, board_id, token, permission, expires_at, revoked_at, created_by, created_at
+    SELECT id, board_id, token, permission, expires_at, revoked_at, created_by, created_at, password_hash
     FROM note_tool.board_share_links
     WHERE token = $1
     LIMIT 1;

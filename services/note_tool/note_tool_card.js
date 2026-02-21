@@ -179,22 +179,25 @@ export async function deleteCard({id,user_id}){
 
 export async function listCardShareLinks({ card_id }) {
     const sql = `
-    SELECT id, card_id, token, permission, expires_at, revoked_at, created_by, created_at
+    SELECT id, card_id, token, permission, expires_at, revoked_at, created_by, created_at,
+           (password_hash IS NOT NULL) AS password_protected
     FROM note_tool.card_share_links
     WHERE card_id = $1
+      AND revoked_at IS NULL
     ORDER BY created_at DESC;
     `;
     const { rows } = await query(sql, [card_id]);
     return rows;
 }
 
-export async function createCardShareLink({ card_id, token, permission, expires_at, created_by }) {
+export async function createCardShareLink({ card_id, token, permission, expires_at, created_by, password_hash }) {
     const sql = `
-    INSERT INTO note_tool.card_share_links (card_id, token, permission, expires_at, created_by)
-    VALUES ($1, $2, $3, $4, $5)
-    RETURNING id, card_id, token, permission, expires_at, revoked_at, created_by, created_at;
+    INSERT INTO note_tool.card_share_links (card_id, token, permission, expires_at, created_by, password_hash)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING id, card_id, token, permission, expires_at, revoked_at, created_by, created_at,
+              (password_hash IS NOT NULL) AS password_protected;
     `;
-    const { rows } = await query(sql, [card_id, token, permission, expires_at, created_by]);
+    const { rows } = await query(sql, [card_id, token, permission, expires_at, created_by, password_hash ?? null]);
     return rows[0];
 }
 
@@ -203,7 +206,8 @@ export async function revokeCardShareLink({ id, card_id }) {
     UPDATE note_tool.card_share_links
     SET revoked_at = NOW()
     WHERE id = $1 AND card_id = $2 AND revoked_at IS NULL
-    RETURNING id, card_id, token, permission, expires_at, revoked_at, created_by, created_at;
+    RETURNING id, card_id, token, permission, expires_at, revoked_at, created_by, created_at,
+              (password_hash IS NOT NULL) AS password_protected;
     `;
     const { rows } = await query(sql, [id, card_id]);
     return rows[0];
@@ -211,7 +215,7 @@ export async function revokeCardShareLink({ id, card_id }) {
 
 export async function getCardShareLinkByToken(token) {
     const sql = `
-    SELECT id, card_id, token, permission, expires_at, revoked_at, created_by, created_at
+    SELECT id, card_id, token, permission, expires_at, revoked_at, created_by, created_at, password_hash
     FROM note_tool.card_share_links
     WHERE token = $1
     LIMIT 1;

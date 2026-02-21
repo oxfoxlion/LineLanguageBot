@@ -1,5 +1,7 @@
 import express from 'express';
 import { randomBytes } from 'crypto';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { authMiddleware } from '../../middlewares/note_tool/auth.js';
 import {
   createCard,
@@ -16,6 +18,164 @@ import {
 } from '../../services/note_tool/note_tool_card.js';
 
 const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'your_fallback_secret';
+const SHARE_COOKIE_MAX_AGE = 1000 * 60 * 60 * 24;
+const cookieSameSiteRaw = (
+  process.env.COOKIE_SAMESITE || (process.env.NODE_ENV === 'production' ? 'none' : 'lax')
+).toLowerCase();
+const COOKIE_SAMESITE = ['lax', 'strict', 'none'].includes(cookieSameSiteRaw) ? cookieSameSiteRaw : 'lax';
+const cookieSecureRaw = process.env.COOKIE_SECURE;
+const computedCookieSecure =
+  cookieSecureRaw === 'true'
+    ? true
+    : cookieSecureRaw === 'false'
+      ? false
+      : COOKIE_SAMESITE === 'none' || process.env.NODE_ENV === 'production';
+const COOKIE_SECURE = COOKIE_SAMESITE === 'none' ? true : computedCookieSecure;
+
+function parseCookies(req) {
+  const cookieHeader = req.headers.cookie || '';
+  return Object.fromEntries(
+    cookieHeader
+      .split(';')
+      .map((pair) => pair.trim())
+      .filter(Boolean)
+      .map((pair) => {
+        const index = pair.indexOf('=');
+        if (index === -1) return [pair, ''];
+        return [pair.slice(0, index), decodeURIComponent(pair.slice(index + 1))];
+      })
+  );
+}
+
+function shareAccessCookieName(token) {
+  const safeToken = String(token).replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `note_tool_share_card_${safeToken}`;
+}
+
+function issueShareAccessToken(token) {
+  return jwt.sign({ type: 'share-card-access', token }, JWT_SECRET, { expiresIn: '1d' });
+}
+
+function hasShareAccess(req, token) {
+  const cookies = parseCookies(req);
+  const accessToken = cookies[shareAccessCookieName(token)];
+  if (!accessToken) return false;
+  try {
+    const payload = jwt.verify(accessToken, JWT_SECRET);
+    return payload?.type === 'share-card-access' && payload?.token === token;
+  } catch {
+    return false;
+  }
+}
+
+function grantShareAccess(res, token) {
+  const accessToken = issueShareAccessToken(token);
+  res.cookie(shareAccessCookieName(token), accessToken, {
+    httpOnly: true,
+    sameSite: COOKIE_SAMESITE,
+    secure: COOKIE_SECURE,
+    maxAge: SHARE_COOKIE_MAX_AGE,
+  });
+}
+
+function toCardDescriptionSnippet(content, fallbackTitle = 'Shared Card') {
+  const raw = content || '';
+  const stripped = raw
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`[^`]*`/g, ' ')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
+    .replace(/\[[^\]]*\]\([^)]+\)/g, ' ')
+    .replace(/[#>*_~\-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const source = stripped || fallbackTitle;
+  return source.slice(0, 150);
+}
+
+async function validateShareLinkOrFail(res, token) {
+  const shareLink = await getCardShareLinkByToken(String(token).trim());
+  if (!shareLink) {
+    res.status(404).json({ message: '找不到分享連結' });
+    return null;
+  }
+  if (shareLink.revoked_at) {
+    res.status(410).json({ message: '此分享連結已失效' });
+    return null;
+  }
+  if (shareLink.expires_at && new Date(shareLink.expires_at) < new Date()) {
+    res.status(410).json({ message: '此分享連結已過期' });
+    return null;
+  }
+  return shareLink;
+}
+
+// GET /share/:token/meta: 分享頁 metadata
+router.get('/share/:token/meta', async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!token || String(token).trim().length < 16) {
+      return res.status(400).json({ message: 'token 格式錯誤' });
+    }
+
+    const shareLink = await validateShareLinkOrFail(res, token);
+    if (!shareLink) return;
+
+    const isPasswordProtected = Boolean(shareLink.password_hash);
+    if (isPasswordProtected) {
+      return res.json({
+        isPasswordProtected: true,
+        title: 'Protected shared card',
+        description: 'This shared card is protected by password.',
+      });
+    }
+
+    const card = await getCardByIdAny(shareLink.card_id);
+    if (!card) {
+      return res.status(404).json({ message: '找不到卡片' });
+    }
+
+    const title = card.title?.trim() || 'Shared Card';
+    return res.json({
+      isPasswordProtected: false,
+      title,
+      description: toCardDescriptionSnippet(card.content, title),
+    });
+  } catch (err) {
+    return res.status(500).json({ message: '讀取分享卡片資訊時發生錯誤', error: err.message });
+  }
+});
+
+// POST /share/:token/unlock: 密碼驗證
+router.post('/share/:token/unlock', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!token || String(token).trim().length < 16) {
+      return res.status(400).json({ message: 'token 格式錯誤' });
+    }
+    if (!password.trim()) {
+      return res.status(400).json({ message: '請輸入密碼' });
+    }
+
+    const shareLink = await validateShareLinkOrFail(res, token);
+    if (!shareLink) return;
+
+    if (!shareLink.password_hash) {
+      return res.status(400).json({ message: '此分享連結未設定密碼' });
+    }
+
+    const matched = await bcrypt.compare(password, shareLink.password_hash);
+    if (!matched) {
+      return res.status(403).json({ message: '密碼錯誤' });
+    }
+
+    grantShareAccess(res, token);
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ message: '分享密碼驗證失敗', error: err.message });
+  }
+});
 
 // GET /share/:token: 透過分享 token 取得卡片內容
 router.get('/share/:token', async (req, res) => {
@@ -25,15 +185,14 @@ router.get('/share/:token', async (req, res) => {
       return res.status(400).json({ message: 'token 格式錯誤' });
     }
 
-    const shareLink = await getCardShareLinkByToken(String(token).trim());
-    if (!shareLink) {
-      return res.status(404).json({ message: '找不到分享連結' });
-    }
-    if (shareLink.revoked_at) {
-      return res.status(410).json({ message: '此分享連結已失效' });
-    }
-    if (shareLink.expires_at && new Date(shareLink.expires_at) < new Date()) {
-      return res.status(410).json({ message: '此分享連結已過期' });
+    const shareLink = await validateShareLinkOrFail(res, token);
+    if (!shareLink) return;
+
+    if (shareLink.password_hash && !hasShareAccess(req, token)) {
+      return res.status(403).json({
+        code: 'PASSWORD_REQUIRED',
+        message: '此分享連結需要密碼',
+      });
     }
 
     const card = await getCardByIdAny(shareLink.card_id);
@@ -131,7 +290,7 @@ router.post('/:cardId/share-links', async (req, res) => {
   try {
     const userId = req.user.userId;
     const cardIdNum = Number(req.params.cardId);
-    const { permission, expires_in_days } = req.body || {};
+    const { permission, expires_in_days, password } = req.body || {};
 
     if (!Number.isInteger(cardIdNum) || cardIdNum <= 0) {
       return res.status(400).json({ message: 'cardId 格式錯誤' });
@@ -143,6 +302,20 @@ router.post('/:cardId/share-links', async (req, res) => {
     }
 
     const normalizedPermission = permission === 'edit' ? 'edit' : 'read';
+    let passwordHash = null;
+    if (password !== undefined) {
+      if (typeof password !== 'string') {
+        return res.status(400).json({ message: 'password 必須為字串' });
+      }
+      const trimmed = password.trim();
+      if (trimmed.length > 0) {
+        if (trimmed.length < 6 || trimmed.length > 12) {
+          return res.status(400).json({ message: 'password 長度需介於 6 到 12 字元' });
+        }
+        passwordHash = await bcrypt.hash(trimmed, 10);
+      }
+    }
+
     let expiresAt = null;
     if (expires_in_days !== undefined) {
       const days = Number(expires_in_days);
@@ -159,6 +332,7 @@ router.post('/:cardId/share-links', async (req, res) => {
       permission: normalizedPermission,
       expires_at: expiresAt,
       created_by: userId,
+      password_hash: passwordHash,
     });
 
     res.status(201).json(link);

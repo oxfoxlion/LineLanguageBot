@@ -138,9 +138,22 @@ CREATE TABLE IF NOT EXISTS note_tool.boards (
   id BIGSERIAL PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES note_tool.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  description TEXT,
   tags TEXT[] DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ✅ 補齊既有資料庫缺少的欄位
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='boards' AND column_name='description'
+  ) THEN
+    ALTER TABLE note_tool.boards ADD COLUMN description TEXT;
+  END IF;
+END $$;
 
 -- === 5. 白板與卡片關聯表 (包含座標佈局) ===
 CREATE TABLE IF NOT EXISTS note_tool.board_cards (
@@ -204,6 +217,7 @@ CREATE TABLE IF NOT EXISTS note_tool.board_share_links (
   board_id BIGINT NOT NULL REFERENCES note_tool.boards(id) ON DELETE CASCADE,
   token TEXT NOT NULL UNIQUE,
   permission TEXT NOT NULL DEFAULT 'read' CHECK (permission IN ('read', 'edit')),
+  password_hash TEXT,
   expires_at TIMESTAMPTZ,
   revoked_at TIMESTAMPTZ,
   created_by TEXT NOT NULL REFERENCES note_tool.users(id) ON DELETE CASCADE,
@@ -236,6 +250,14 @@ BEGIN
   ) THEN
     ALTER TABLE note_tool.board_share_links ADD COLUMN revoked_at TIMESTAMPTZ;
   END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='board_share_links' AND column_name='password_hash'
+  ) THEN
+    ALTER TABLE note_tool.board_share_links ADD COLUMN password_hash TEXT;
+  END IF;
 END $$;
 
 -- === 8. 卡片分享連結 ===
@@ -244,6 +266,7 @@ CREATE TABLE IF NOT EXISTS note_tool.card_share_links (
   card_id BIGINT NOT NULL REFERENCES note_tool.cards(id) ON DELETE CASCADE,
   token TEXT NOT NULL UNIQUE,
   permission TEXT NOT NULL DEFAULT 'read' CHECK (permission IN ('read', 'edit')),
+  password_hash TEXT,
   expires_at TIMESTAMPTZ,
   revoked_at TIMESTAMPTZ,
   created_by TEXT NOT NULL REFERENCES note_tool.users(id) ON DELETE CASCADE,
@@ -275,6 +298,14 @@ BEGIN
     WHERE table_schema='note_tool' AND table_name='card_share_links' AND column_name='revoked_at'
   ) THEN
     ALTER TABLE note_tool.card_share_links ADD COLUMN revoked_at TIMESTAMPTZ;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='note_tool' AND table_name='card_share_links' AND column_name='password_hash'
+  ) THEN
+    ALTER TABLE note_tool.card_share_links ADD COLUMN password_hash TEXT;
   END IF;
 END $$;
 
